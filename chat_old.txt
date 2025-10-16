@@ -1,0 +1,228 @@
+ch möchte in Pyhton einen KI-Workflow kreieren, der Schichtwünsche aus Outlook Mails von Mitarbeitern herausliest und in eine bestehende Excel-Tabelle einpflegt. Die Mails sollen sowohl durch Analyse der Mailadresse, als auch durch Named Entity Recognition einer bestehen Liste von Mitarbeitern zugewiesen werden, bevor sie anoymisiert und an die OpenAI API verschickt werden, um Schichtwünsche aus dem Mailtext zu lesen. Ich habe eine Excel-Liste, die alle Klarnamen der Mitarbeiter enthält (Mitarbeitendendaten.xlsx) zur Verfügung und es muss im Workflow nachvollziehbar werden, von welchem der Mitarbeiter die Mail geschrieben wurde, also zu welchem Mitarbeiter jeder Schichtwunsch gehört. Der Workflow soll am Ende als pyinstaller exe auf einem Windows 11 Rechner ausführbar sei, der Outlook geöffnet hat und darin angemeldet ist, somit Zugriff auf das benötigte Postfach hat. Die exe soll außerdem eine kleine tkinter GUI öffnen, welche abfrägt, welche Mails (also aus welchem Zeitraum) relevant sind und eine Liste aller möglichen Schichten aufnimmt. Die GUI soll außerdem eine Liste aller Mails (inklusive Betreff und Absender) zurückgeben, die vom Workflow entweder nicht verarbeitet werden konnten, oder nicht als Schichtwunsch klassifiziert wurden. Das Programm soll in Python modular aufgebaut sein und stets relative Pfade nutzen.
+
+Zu verwendende Variabeln:
+
+"Workflow" = "Programm" = "Skript": Beschreibung für das fertige Produkt
+"Klarname": Vollständiger Name eines Mitarbeiters, der aus mehreren "Wörtern" bestehen kann.
+"Mailname": Der Teil der Mailadresse des Mitarbeites vor dem "@", also ein String ohne Leerzeichen.
+"interne_Liste": Liste aller Klarnamen, jeweils mit zugehöirgem Embedding, zugehöriger Fahrernummer und einer Liste der vom Mitarbeiter verwendeten Mailadressen.
+"Mail_JSON": interne Repräsentation von eingelesenen Mails, mit den Einträgen "Mailadresse", "Fahrernummer" (zunächst leer), "Mailtext" und "id" (id zur internen Zurodnung, einfach hochzählen).
+"MAILNAME_COSSIM" (globale Konstante): Schwellwert, über welchem cosine similarity zwischen Embedding von Klarname und Mailname akzeptiert wird. Default = 0.6
+"PRESIDIO_COSSIM" (globale Konstante): Schwellwert, über welchem Presidio einen Namen im Text erkennt. Default = 0.6
+"schwierige_Mails": Liste aller Mails die entweder keinem Mitarbeiter zugewiesen werden konnten oder deren Text nicht als Schichtwunsch klassifiziert wurde.
+Zu verwendende Dateien, welche alle im selben Ordner wie die python-Dateien (und später die .exe) liegen:
+
+Mitarbeitendendaten.xlsx (existiert bereits): Eine Liste aller Mitarbeiter mit mehreren Spalten. Eine der Spalten "Vorname" enthält jeweils die Vornamen der Person und eine der Spalten "Nachname" enthält jeweils die Nachnamen der Person. Eine weitere Spalte "Fahrernummer" enthält jeweils die Fahrernummer der Person. Die anderen Spalten interessieren uns nicht.
+embeddings.pkl (wird vom Programm selbst erstellt/gepflegt): Dauerhafter Speicher für die interne_Liste. Liste von Dictionaries mit den Einträgen {"Klarname":..,"embedding":..,"Fahrernummer":..,"mailaddresses":[..]}. Orientiert sich immer am stets aktuellen Mitarbeitendendaten.xlsx und wird bei Programmstart aktualisiert.
+Fahrer_Dienstwuensche.xlsx (existiert bereits): Ziel des Workflows ist es, diese Excel-Tabelle mit den Dienstwünschen zu füllen. Die Excel enthält ein Arbeitsblatt pro Kalenderwoche und soll immer mit der neuesten Kalenderwoche ergänzt werden. Es gibt jeweils eine Spalte für jeden Wochentag, in welcher die Namen (erster Buchstabe der Vornamen + Nachname) der am entsprechenden Tag willigen Mitarbeiter stehen, jeweils zusammen mit den von Leerzeichen getrennten Schichtwünschen des Tages.
+llm.env: speichert API key
+Zu verwendende Bibliotheken (außer den Standardbibliotheken):
+pywin32
+openai
+transformers
+sentence-transformers
+openpyxl
+pandas
+python-dotenv
+tqdm
+presidio-analyzer
+presidio-anonymizer
+dotenv
+tkinter
+
+Der Worklfow soll folgende Schritte abarbeiten:
+
+1.) Embedding von Mitarbeiternamen
+
+1.1. Bestehende Klarnamen, Fahrernummern, Mailadressen und Embeddings aus embeddings.pkl laden. Wenn embeddings.pkl nicht existiert, eine neue, leere embeddings.pkl erstellen.
+1.2. Abgleichen der in der möglicherweise veralteten embeddings.pkl vorhandenen Klarnamen mit der stets aktuellen Mitarbeitendendaten.xlsx. Klarnamen, die in Mitarbeitendendaten.xlsx nicht mehr vorkommen, aus embeddings.pkl löschen. Klarnamen, die in Mitarbeitendendaten.xlsx vorkommen, aber noch nicht in embeddings.pkl sind, zunächst in all-lowercase umwandeln.
+1.3. Mithilfe des sentence-transformer all-MiniLM-L6-v2 die all-lowercase-Klarnamen in Embeddings umwandeln (ein Embedding pro Klarname) und gemeinsam mit normalen Klarnamen und Fahrernummer als neuen Eintrag in embeddings.pkl speichern. Die Liste der vom entsprechenden Mitarbeiter verwendeten Mailadressen dabei anlegen aber noch leer lassen.
+1.4. Die aktuelle Liste an normalen Klarnamen in folgender Weise an presidio-analyzer presidio-anonymizer übergeben: "You can use a PatternRecognizer or DictionaryRecognizer that matches any name in your list. Then register it with the AnalyzerEngine, and it will detect and anonymize those names along with the built-in recognizers."
+1.5. interne_Liste (in Schritt 1.3 aktualisierte Version) im Programm bereithalten.
+
+2.) Einlesen von Mails aus Outlook, Zuordnung zu Mitarbeiternamen, Anonymisierung
+
+2.1. Mithilfe von MAPI/COM alle Mails aus Outlook, die zwischen einem in der GUI definierbarem Startzeitpunkt (kein default) und Endzeitpunkt (default: heute, jetzt) sowohl im Postfach "swaxi-dispo@sw-augsburg" als auch dem darin enthaltenen Archiv "Dienstwünsche / FZ" eingegangen sind, einlesen und als Mail_JSON bereit halten.
+2.2. Überprüfen, welche der eingelesenen Mailadressen bereits als identischer String in interne_Liste hinterlegt sind und in diesen Fällen die entsprechende Fahrernummer in die Mail_JSON eintragen.
+2.3. Für alle anderen Mails, deren Mailadressen nicht bereits in interne_Liste hinterlegt sind, den Mailnamen aus der Mailadresse (also alles vor dem @) extrahieren, in all-lowercase umwandeln und mithilfe von all-MiniLM-L6-v2 jeden Mailnamen in ein Embedding umwandeln.
+2.4. Für jede JSON_Mail die nach Schitt 2.2 noch keine Fahrernummer hat, sentence-transformer cosine similarity verwenden um das Embedding des entsprechenden Mailnamens mit den Embeddings in interne_Liste abzugleichen. Wenn mehrere Klarnamen MAILNAME_COSSIM überschreiten, keine Fahrernummer in Mail_JSON eintragen. Wenn nur ein Klarname den Schwellwert MAILNAME_COSSIM übreschreitet, die entsprechende Fahrernummer in die Mail_JSON eintragen. Sollte kein cossim MAILNAME_COSSIM überschreiten, keine Fahrernummer eintragen.
+2.5. Von jeder JSON_Mail den Mailtext mit presidio auf Namen untersuchen. Bei einem score überhalb von PRESIDIO_COSSIM, den entsprechend erkannten Namen aus dem Mailtext in JSON_Mail entfernen (Anonymisierung ohne Platzhalter), ihn anschließend in all-lowercase umwandeln und mithife von all-MiniLM-L6-v2 in ein Embedding (=textname-embedding) umwandeln. Achtung: auch nicht in der Liste von Mitarbeitern erwähnte Namen sollen entfernt werden (vollständige Anonymisierung).
+2.6. Sentence-transformer cosine similarity verwenden um das textname-embedding mit den Embeddings in interne_Liste abzugleichen. Wenn mehrere Klarnamen MAILNAME_COSSIM überschreiten, keine Fahrernummer in die Mail_JSON eintragen. Wenn nur ein Klarname den Schwellwert MAILNAME_COSSIM übreschreitet, überprüfen ob dessen Fahrernummer einer möglicherweise bereits in Mail_JSON eingetragenen Farernummer widerspricht. Sollten sie sich widersprechen, die Fahrernummer aus Mail_JSON wieder löschen. Sollten sie wiederum zusammenpassen, oder noch keine Fahrernummer in Mail_JSON eingetragen sein, die entsprechende Fahrernummer eintragen. Sollte kein cossim MAILNAME_COSSIM überschreiten, keine Fahrernummer eintragen.
+2.7. Bei allen Mail_JSON, die in Schritt 2.4 oder 2.6 eine Fahrernummer bekommen haben die sie in Schritt 2.2 noch nicht bekommen hatten, die entsprechende Mailadresse zur Liste von Mailadressen des Klarnamens in embeddings.pkl hinzufügen.
+2.8. Alle Mail_JSON die nach Schritt 2.6 noch keine Fahrernummer haben in schwierige_Mails verschieben und nicht weiter bearbeiten.
+
+3.) Schichtwünsche des Mitarbeiters mithilfe von OpenAI API aus Mails herauslesen
+
+TBD
+
+4.) Tabelle mit Schichtwünschen erstellen und in Excel eintragen
+
+TBD
+
+Bitte baue den Code modular auf und unterteile ihn in folgende Dateien:
+-main.py
+-embedding.py (beinhält die all-MiniLM-L6-v2 Funktionen für Embeddings und cos sim und hält embeddings.pkl aktuell)
+-mailprep.py (hier lebt Mail_JSON und wird fortlaufend verändert: Zuweisung der Fahrernummer, Anonymisierung, ...)
+-llm.py (OpenAI Anbindung, bekommt die fertig anonymisierten und zugewiesenen Mail_JSONs und sendet Mailtext zur Analyse an die OpenAI API)
+-shifts.py (kreiert die finale Tabelle mit Schichtwünschen und schreibt sie in die Excel-Datei)
+
+Ich habe in meinem aktuellen Ordner bereits ein venv erstellt und aktiviert, du kannst hierin arbeiten. Beginne bitte zunächst nur mit der Erstellung von main.py und embedding.py und erstelle mir eine requirements.txt, die du ab sofort aktuell hältst. Bevor du beginnst, Code zu schrieben stelle mir bitte zuerst Fragen, um sicherzugehen, dass du mein Vorhaben richtig verstanden hast.
+
+
+
+
+
+
+
+
+
+Bevor ich mit der Implementierung beginne, möchte ich sicherstellen, dass ich Ihr Vorhaben vollständig verstanden habe. Hier sind einige Fragen und Klarstellungen:
+
+Verständnisfragen:
+Excel-Dateien:
+
+Soll die Datei Mitarbeitendendaten.xlsx bei jedem Programmstart automatisch eingelesen und mit embeddings.pkl abgeglichen werden, oder möchten Sie eine manuelle Aktualisierungsmöglichkeit?
+Soll die Datei Fahrer_Dienstwuensche.xlsx bei jedem Lauf automatisch aktualisiert werden, oder möchten Sie eine Option, dies zu überspringen?
+Schwellwerte:
+
+Die Schwellwerte MAILNAME_COSSIM und PRESIDIO_COSSIM sollen als globale Konstanten definiert werden. Möchten Sie diese Werte in einer Konfigurationsdatei (z. B. .env) speichern, um sie leicht anpassen zu können?
+Outlook-Integration:
+
+Soll das Programm nur auf das Postfach swaxi-dispo@sw-augsburg zugreifen, oder möchten Sie die Möglichkeit, das Postfach in der GUI auszuwählen?
+Soll das Programm auch Anhänge in den Mails berücksichtigen, oder nur den reinen Mailtext?
+GUI-Funktionalität:
+
+Soll die GUI die Möglichkeit bieten, die Schwellwerte (MAILNAME_COSSIM, PRESIDIO_COSSIM) anzupassen, oder sollen diese fest im Code definiert bleiben?
+Möchten Sie, dass die GUI eine Vorschau der zu verarbeitenden Mails anzeigt, bevor der Workflow gestartet wird?
+Fehlerbehandlung:
+
+Wie detailliert soll die Fehlerbehandlung sein? Soll das Programm z. B. bei fehlenden Berechtigungen für Outlook oder bei Problemen mit der Excel-Datei eine spezifische Fehlermeldung anzeigen?
+Modularität:
+
+Soll embedding.py ausschließlich für die Verwaltung von embeddings.pkl und die Berechnung von Embeddings zuständig sein, oder möchten Sie auch die Presidio-Integration (Schritt 1.4) in diese Datei aufnehmen?
+Anonymisierung:
+
+Soll die Anonymisierung durch Presidio vollständig sein (alle Namen entfernen), oder möchten Sie die Möglichkeit, bestimmte Namen (z. B. aus einer Whitelist) beizubehalten?
+PyInstaller-Integration:
+
+Soll ich bereits beim Schreiben des Codes sicherstellen, dass alle Pfade und Abhängigkeiten so gestaltet sind, dass sie problemlos mit PyInstaller funktionieren?
+Testing:
+
+Möchten Sie, dass ich Unit-Tests für die Module (z. B. embedding.py) vorbereite, oder liegt der Fokus zunächst auf der Funktionalität?
+Bitte bestätigen Sie diese Punkte oder geben Sie weitere Details, bevor ich mit der Implementierung beginne.
+
+
+
+
+
+
+
+
+Mitarbeitendendaten.xlsx soll bei jedem Programmstart automatisch eingelesen werden. Der zweite Punkt mit der Option es zu Überspringen, gefällt mir. Du kanns in der GUI einen Knopf "Zu Excel-Tablle hinzufügen" hinzufügen, der nach der fertigen Analyse klickbar wird. Nur dann wird die Excel Tabelle erweitert.
+Ja, gute idee! Erstelle gerne zusätzlich zu llm.env noch eine settings.env
+Es muss nur auf das Postfach swaxi-dispo@sw-augsburg und ebenfalls auf das darin enthaltene Archiv "Dienstwünsche / FZ" zugegriffen werden. Es sind von den Mails nur Mailtext, Mailadresse, Betreff und Empfangsdatum relevant.
+Die GUI soll nicht die Möglichkeit bieten, die Schwellwerte anzupassen. Eine Vorschau der zu bearbeitenden Mails samt ihrere Betreffe, sowie die Option, einzelne Mails zu entfernen, sodass sie vom Workflow nicht abgearbeitet werden, wäre allerdings super, ja! Dann also ein Button mit "Start" und nach fertiger Analyse ein Button mit "Zu Excel-Tablle hinzufügen".
+Gerne zwischen Outlook, Excel und ähnlichen Problemen kathegorisch grob unterscheiden und entsprechende Fehlermeldungen zeigen, aber hier nicht zu detailliert werden.
+Gute Idee, embedding.py soll auch die Presidio-Integration enthalten.
+Sämtliche im Mailtext vorkommende Namen sollen vollständig entfernt werden.
+Ja, bitte!
+Der Fokus ist zunächst auf der Funktionalität, wir brauchen erst mal keine Unit-Tests.
+
+
+
+
+
+
+
+
+
+Vielen Dank für die Klarstellungen! Hier ist mein Plan für die nächsten Schritte:
+
+Plan:
+main.py:
+
+Initialisiert das Programm.
+Lädt die settings.env und llm.env Dateien.
+Ruft die Funktionen aus embedding.py auf, um die interne_Liste zu aktualisieren.
+Startet die GUI, die den Zeitraum für relevante Mails und die Liste der Schichten abfragt.
+Übergibt die Steuerung an die weiteren Module.
+embedding.py:
+
+Lädt oder erstellt embeddings.pkl.
+Aktualisiert die interne_Liste basierend auf Mitarbeitendendaten.xlsx.
+Berechnet Embeddings für neue Klarnamen mit all-MiniLM-L6-v2.
+Integriert Presidio für die Anonymisierung von Namen.
+requirements.txt:
+
+Enthält alle benötigten Bibliotheken, einschließlich der von Ihnen genannten.
+settings.env:
+
+Speichert die Schwellwerte MAILNAME_COSSIM und PRESIDIO_COSSIM.
+GUI:
+
+Ermöglicht die Auswahl des Zeitraums und der Schichten.
+Zeigt eine Vorschau der zu bearbeitenden Mails.
+Ermöglicht das Entfernen einzelner Mails aus der Verarbeitung.
+Bietet die Buttons "Start" und "Zu Excel-Tabelle hinzufügen".
+Ich werde nun mit der Erstellung von main.py, embedding.py und requirements.txt beginnen.
+
+Created main.py
+
+Created embedding.py
+
+Created requirements.txt
+
+Created settings.env
+
+Die Dateien main.py, embedding.py, requirements.txt und settings.env wurden erstellt. Es gibt jedoch einige Probleme mit fehlenden Modulen, die in den Lint-Fehlern gemeldet wurden. Diese Module müssen installiert werden.
+
+Nächste Schritte:
+Installieren der Abhängigkeiten:
+
+Die Module in requirements.txt müssen in Ihrer virtuellen Umgebung installiert werden. Ich kann dies für Sie ausführen.
+Überprüfung der Module:
+
+Nach der Installation sollten wir sicherstellen, dass alle Importe korrekt aufgelöst werden.
+Soll ich die Abhängigkeiten jetzt installieren?
+
+
+
+
+
+
+
+
+Ja installiere gerne die nötigen Bibliotheken in das virtual environment venv. Kann ich anschließend mal Mitarbeitendendaten.xlsx zum aktuellen Ordner hinzufügen und schon mal einen ersten Testlauf starten, ob Embeddings und Mails einlesen funktioniert? Outlook habe ich geöffnet und bin angemeldet.
+
+
+
+
+
+
+
+
+Die benötigten Bibliotheken wurden erfolgreich in das virtuelle Environment installiert. Sie können nun die Datei Mitarbeitendendaten.xlsx in den aktuellen Ordner hinzufügen.
+
+Sobald die Datei vorhanden ist, können Sie einen ersten Testlauf starten, um zu überprüfen, ob die Embeddings korrekt erstellt werden und ob das Einlesen der Mails funktioniert. Soll ich den Testlauf für Sie starten oder möchten Sie dies selbst tun?
+
+
+
+
+
+
+
+
+Ich habe eine neue Variable: "Kurzname". Sie wird aus dem Klarnamen erstellt, indem das letzte Wort des Namen ausgeschrieben wird, alle vorangehenden Wörter jedoch nur mit Initialen (jeweils ein Großbuchstabe mit einem Punkt). embeddings.pkl wird diesen Kurznamen führen und in Schritt 1.3 bei jedem neuen Eintrag den Kurznamen aus dem Klarnamen erstellen, in interne_Liste behalten. Anschließend kann der Kurzname in der GUI bearbeitet werden und die bearbeitete Version sollte in embedings.pkl überschrieben werden.
+
+Ich habe eine zusätzliche Datei die du mir bitte erstellst, aber noch leer lässt: "gui.py": enthält alle GUI funktionalitäten und tkinter funktionen. Ich habe außerdem neue Funktionalitäten für die GUI. Sie soll die Liste aller Mails, die der workflow bearbeitet und die sie am anfang anzeigt, behalten und nach der ersten Analyse eine neue spalte hinzufügen, die zeigt, welcher Kurzname jeder Mail zugewiesen wurde. Dabei sollen im aktuellen Durchlauf neu zugewiesene Kurznamen ganz oben dargestellt und gehghlightet werden.
+
+Ich habe eine Anpassung for Schritt 2.7: Ich möchte diesen erst später ausführen. embeddings.pkl sollte erst ganz am Ende des Wrokflows neue Mailadressen und Kurznamen erhalten.
+
+Bitte schreibe nun mailprep.py entsprechend den Anweisungen meiner ersten Nachricht. Mail_JSON soll am Ende Eine JSON mit den Einträgen id, Fahrernummer (falls identifiziert), Mailadresse und anonymisiertem Mailtext inklusive Betreff sein. Frag mich davor wieder ab, um sicherzustellen dass du mein Vorhaben verstanden hast.
+
+
+
+
+
+
+#TODO: embeddings.pkl mit neuen aktualisieren.
