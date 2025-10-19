@@ -1,0 +1,4 @@
+#TODO: Ich möchte in meinem ersten Test als Zwischenergebnis im Debugger Mail_JSON-Objekte sehen, die lediglich den normalen Mailtext samt Betreff und Mailadresse vorweisen; außerdem sollten alle fehlenden Kurznamen in Mitarbeitendendaten.xlsx eingetragen sein. 
+#TODO: vor Eintrag in excel tabelle, zwei listen aller schwierigen Mails zeigen, eine mit allen die einen Schichtwunsch enthalten und eine weitere liste mit allen mails ohne schichtwunsch
+#TODO: von LLM confidence value zurückgeben lassen und die am Ende gelisteten Mails entsprechend sortieren. 
+#TODO: statt konkretem schichtwunsch auch entweder EGAL oder "4h ab 14 uhr" oder sowas erkennen und eintragen

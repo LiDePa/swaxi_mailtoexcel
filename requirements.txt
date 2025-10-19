@@ -1,0 +1,8 @@
+pywin32
+openai
+openpyxl
+pandas
+tqdm
+presidio-analyzer
+presidio-anonymizer
+python-dotenv

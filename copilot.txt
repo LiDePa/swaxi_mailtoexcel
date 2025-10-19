@@ -71,8 +71,20 @@ Bitte baue den Code modular auf und unterteile ihn in folgende Dateien:
 -shifts.py (kreiert die finale Tabelle mit Schichtwünschen und schreibt sie in die Excel-Datei)
 
 
-Ich habe in meinem aktuellen Ordner bereits ein venv erstellt und aktiviert, du kannst hierin arbeiten. Bitte erstelle mir eine requirements.txt und installiere alle nöigen Bibliotheken. Beginne anschließend zunächst nur mit den Schritten 1.1, 1.2, 1.3 und 2.1, also auch mit der Erstellung von main.py, gui.py und mail.py. Ich möchte in meinem ersten Test als Zwischenergebnis im Debugger Mail_JSON-Objekte sehen, die lediglich den normalen Mailtext samt Betreff und Mailadresse vorweisen; außerdem sollten alle fehlenden Kurznamen in Mitarbeitendendaten.xlsx eingetragen sein. Bevor du beginnst, Code zu schrieben stelle mir bitte zuerst Fragen, um sicherzugehen, dass du mein Vorhaben richtig verstanden hast.
+Ich habe in meinem aktuellen Ordner bereits ein venv erstellt und aktiviert, du kannst hierin arbeiten. Bitte erstelle mir eine requirements.txt und installiere alle nöigen Bibliotheken. Bevor du beginnst, Code zu schrieben stelle mir bitte zuerst Fragen, um sicherzugehen, dass du mein Vorhaben richtig verstanden hast. Mache mir bitte außerdem einen Vorschlag, womit du bei der Programmierung beginnen möchtest, welche .py Dateien und Funktionalitäten mchtest du zuerst erstellen?
 
 
-#TODO: vor Eintrag in excel tabelle, zwei listen aller schwierigen Mails zeigen, eine mit allen die einen Schichtwunsch enthalten und eine weitere liste mit allen mails ohne schichtwunsch
-#TODO: von LLM confidence value zurückgeben lassen und die am Ende gelisteten Mails entsprechend sortieren. 
+
+
+
+
+
+
+
+
+
+
+
+
+
+Ich habe Mitarbeitendendaten.xlsx in Mitarbteiter.xlsx umbenannt, da ich eine aktuellere Liste gefunden habe. In dieser heißt die Spalte A mit den Fahrernummern "Titel" statt "Fahrernummer. Außerdem ist "Vorname" nun Spalte B, "Nachname" ist Spalte C, "Mailadressen" heißt nun "E-Mail Privat" und ist Spalte F, "Kurzname" ist nun Spalte K.
