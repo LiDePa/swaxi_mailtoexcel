@@ -1,7 +1,6 @@
 
-from mail import lade_mitarbeiter, debug_mail_json
+from mail import lade_mitarbeiter, lade_mails_aus_outlook
 
 if __name__ == "__main__":
-    mitarbeiter = lade_mitarbeiter()
-    print(f"Geladene Mitarbeiter: {mitarbeiter}")
-    debug_mail_json()
+    mails = lade_mails_aus_outlook()
+    print(f"Geladene Mails: {mails}")
