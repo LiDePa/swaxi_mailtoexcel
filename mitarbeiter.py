@@ -1,8 +1,10 @@
 from openpyxl import load_workbook
 import os
 import sys
+import re
 
 
+#MITARBEITERLISTE:
 
 class Mitarbeiter:
 	def __init__(self, fahrernummer, vorname, nachname, mailadressen, kurzname):
@@ -56,3 +58,38 @@ def generiere_kurzname(vorname, nachname):
 	initialen = [f"{v[0]}." for v in vornamen if v]
 	kurzname = " ".join(initialen + nachnamen)
 	return kurzname.strip()
+
+
+
+
+
+# ANONYMISIERUNG:
+
+def erstelle_mitarbeiter_pattern(mitarbeiter_liste):
+    """
+    Build a single regex pattern for all employee names (first, last, full names).
+    """
+    alle_namen = set()
+    for m in mitarbeiter_liste:
+        if m.vorname:
+            alle_namen.add(str(m.vorname))
+        if m.nachname:
+            alle_namen.add(str(m.nachname))
+        if m.vorname and m.nachname:
+            alle_namen.add(f"{m.vorname} {m.nachname}")
+    
+    # Join all names with | to make a single regex
+    pattern_str = r"\b(" + "|".join(re.escape(name) for name in alle_namen) + r")\b"
+    return re.compile(pattern_str, flags=re.IGNORECASE)
+
+
+def anonymisiere_mailtexte(mailjson_liste, mitarbeiter_liste):
+    """
+    Replace all employee names in mails with 'Anon'.
+    """
+    pattern = erstelle_mitarbeiter_pattern(mitarbeiter_liste)
+
+    for mail in mailjson_liste:
+        mail.Mailtext_anonym = pattern.sub("Anon", mail.Mailtext)
+
+    return mailjson_liste

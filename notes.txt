@@ -1,4 +1,22 @@
-#TODO: Ich möchte in meinem ersten Test als Zwischenergebnis im Debugger Mail_JSON-Objekte sehen, die lediglich den normalen Mailtext samt Betreff und Mailadresse vorweisen; außerdem sollten alle fehlenden Kurznamen in Mitarbeitendendaten.xlsx eingetragen sein. 
-#TODO: vor Eintrag in excel tabelle, zwei listen aller schwierigen Mails zeigen, eine mit allen die einen Schichtwunsch enthalten und eine weitere liste mit allen mails ohne schichtwunsch
-#TODO: von LLM confidence value zurückgeben lassen und die am Ende gelisteten Mails entsprechend sortieren. 
-#TODO: statt konkretem schichtwunsch auch entweder EGAL oder "4h ab 14 uhr" oder sowas erkennen und eintragen
+
+
+vornamen und nachnamen nach string (leerzeichen) unterteilen und einzeln zu regex hinzufügen
+
+FIRST cut mail if "Swaxi Dispo" or "swaxi-dispo@sw-augsburg.de" appears. delete the entire line
+
+then replace all names
+
+add any string containing an @ to regex anonymization, replace with anon_mail
+
+look for phone numbers?
+
+
+
+
+LLM sagen dass mails anonymisiert und namen mit anon, anon_mail etc ersetzt wurden.
+
+vor Eintrag in excel tabelle, zwei listen aller schwierigen Mails zeigen, eine mit allen die einen Schichtwunsch enthalten und eine weitere liste mit allen mails ohne schichtwunsch
+
+von LLM confidence value zurückgeben lassen und die am Ende gelisteten Mails entsprechend sortieren. 
+
+statt konkretem schichtwunsch auch entweder EGAL oder "4h ab 14 uhr" oder sowas erkennen und eintragen
