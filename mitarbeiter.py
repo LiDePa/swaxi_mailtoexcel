@@ -65,31 +65,75 @@ def generiere_kurzname(vorname, nachname):
 
 # ANONYMISIERUNG:
 
+def _zerlege_name(name):
+    """Zerlegt einen Namen (z.B. 'Linus Lorenzo') in einzelne Bestandteile (z.B. ['Linus', 'Lorenzo'])."""
+    if not name:
+        return []
+    # Trennen nach Leerzeichen oder Bindestrich
+    return re.split(r'[\s\-]+', str(name).strip())
+
 def erstelle_mitarbeiter_pattern(mitarbeiter_liste):
     """
-    Build a single regex pattern for all employee names (first, last, full names).
+    Build a single regex pattern for all employee name parts (first, last).
+    Full names are deliberately excluded to reduce pattern size.
     """
     alle_namen = set()
     for m in mitarbeiter_liste:
-        if m.vorname:
-            alle_namen.add(str(m.vorname))
-        if m.nachname:
-            alle_namen.add(str(m.nachname))
-        if m.vorname and m.nachname:
-            alle_namen.add(f"{m.vorname} {m.nachname}")
+        # Nur die einzelnen Namensbestandteile hinzufügen
+        for teil in _zerlege_name(m.vorname):
+            alle_namen.add(teil)
+        for teil in _zerlege_name(m.nachname):
+            alle_namen.add(teil)
     
-    # Join all names with | to make a single regex
-    pattern_str = r"\b(" + "|".join(re.escape(name) for name in alle_namen) + r")\b"
+    # Entferne leere Strings
+    alle_namen.discard("")
+    
+    # Sortierung nach Länge ist hier nicht mehr kritisch, da wir nur Einzelnamen haben, 
+    # aber wir behalten es bei, um maximale Namensteil-Länge zu priorisieren (z.B. Doppelnamen).
+    sortierte_namen = sorted(list(alle_namen), key=len, reverse=True)
+    
+    # Füge \b (Wortgrenzen) um jeden Namen hinzu
+    escaped_namen = [re.escape(name) for name in sortierte_namen]
+    
+    pattern_str = r"\b(" + "|".join(escaped_namen) + r")\b"
     return re.compile(pattern_str, flags=re.IGNORECASE)
 
 
 def anonymisiere_mailtexte(mailjson_liste, mitarbeiter_liste):
     """
-    Replace all employee names in mails with 'Anon'.
+    Replace all employee names, remove mail footers, and anonymize all email addresses.
+    Footer removal is prioritized for efficiency.
     """
-    pattern = erstelle_mitarbeiter_pattern(mitarbeiter_liste)
+    # 1. Mitarbeiter-Namen-Pattern erstellen
+    mitarbeiter_pattern = erstelle_mitarbeiter_pattern(mitarbeiter_liste)
+    
+    # 2. Pattern für Mailadressen (@ enthalten)
+    mail_adresse_pattern = r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}"
+    
+    # Pattern für die Zeile, ab der der Text gekürzt werden soll
+    kuerzungs_pattern = re.compile(r"^(.*(?:Swaxi Dispo|swaxi-dispo@sw-augsburg\.de).*)$", flags=re.MULTILINE | re.IGNORECASE)
+
+    # Pattern für die Reduzierung mehrfacher Zeilenumbrüche
+    zeilenumbruch_pattern = re.compile(r"(\r\n|\n|\r){2,}")
 
     for mail in mailjson_liste:
-        mail.Mailtext_anonym = pattern.sub("Anon", mail.Mailtext)
+        mail_text_bearbeitet = mail.Mailtext
+        
+        # NEU: A. Mailtext kürzen: Zeilen ab "Swaxi Dispo" oder "swaxi-dispo@sw-augsburg.de" entfernen (PRIORISIERT)
+        match = kuerzungs_pattern.search(mail_text_bearbeitet)
+        if match:
+            # Kürze den Text bis zum Beginn der gefundenen Zeile
+            mail_text_bearbeitet = mail_text_bearbeitet[:match.start()]
+            
+        # B. Mehrere Zeilenumbrüche auf ein einzelnes \n reduzieren
+        mail_text_bearbeitet = zeilenumbruch_pattern.sub("\n", mail_text_bearbeitet)
+        
+        # C. Mitarbeiter-Namen anonymisieren
+        mail_text_bearbeitet = mitarbeiter_pattern.sub("Anon", mail_text_bearbeitet)
+        
+        # D. Mailadressen anonymisieren
+        mail_text_bearbeitet = re.sub(mail_adresse_pattern, "mailadress_anon", mail_text_bearbeitet, flags=re.IGNORECASE)
+
+        mail.Mailtext_anonym = mail_text_bearbeitet.strip()
 
     return mailjson_liste
