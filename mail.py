@@ -35,7 +35,7 @@ def finde_ordner(parent_folder, ordnername, rekursiv=False):
 				return found
 	return None
 
-def lade_mails_aus_outlook():
+def lade_mails_aus_outlook(startdatum, enddatum):
 	outlook = win32com.client.Dispatch("Outlook.Application").GetNamespace("MAPI")
 	# Freigegebenes Postfach holen
 	konto = None
@@ -57,7 +57,7 @@ def lade_mails_aus_outlook():
 				# Offset-naive Vergleich
 				if empfangen.tzinfo is not None:
 					empfangen = empfangen.replace(tzinfo=None)
-				if START_DATUM <= empfangen <= END_DATUM:
+				if startdatum <= empfangen <= enddatum:
 					mail_id = len(mails) + 1
 					mailadresse = item.SenderEmailAddress
 					betreff = item.Subject
@@ -78,7 +78,7 @@ def lade_mails_aus_outlook():
 				# Offset-naive Vergleich
 				if empfangen.tzinfo is not None:
 					empfangen = empfangen.replace(tzinfo=None)
-				if START_DATUM <= empfangen <= END_DATUM:
+				if startdatum <= empfangen <= enddatum:
 					mail_id = len(mails) + 1
 					mailadresse = item.SenderEmailAddress
 					betreff = item.Subject
