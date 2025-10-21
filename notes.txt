@@ -14,12 +14,12 @@ look for phone numbers?
 
 
 LLM sagen dass mails anonymisiert und namen mit anon, anon_mail etc ersetzt wurden.
+statt konkretem schichtwunsch auch entweder EGAL oder "4h ab 14 uhr" oder sowas erkennen und eintragen
 
 vor Eintrag in excel tabelle, zwei listen aller schwierigen Mails zeigen, eine mit allen die einen Schichtwunsch enthalten und eine weitere liste mit allen mails ohne schichtwunsch
+von LLM confidence value zurückgeben lassen und die gelisteten Mails entsprechend sortieren. 
 
-von LLM confidence value zurückgeben lassen und die am Ende gelisteten Mails entsprechend sortieren. 
-
-statt konkretem schichtwunsch auch entweder EGAL oder "4h ab 14 uhr" oder sowas erkennen und eintragen
+bei "in excel eintragen" tabelle vorher in gui zeigen und welche mail zu welchen eintragungen geführt hat. (wenn man in der liste auf die mail klickt, werden die entsprechenden eintragungen in der tabelle farblich hervorgehoben)
 
 
 

@@ -6,10 +6,10 @@ import mail
 
 
 if __name__ == "__main__":
+    mitarbeiter = lade_mitarbeiter()
     zeitraum = zeitraum_abfragen()
     if zeitraum:
         mail.START_DATUM, mail.END_DATUM = zeitraum
         mails = lade_mails_aus_outlook()
-        mitarbeiter = lade_mitarbeiter()
         mails = anonymisiere_mailtexte(mails, mitarbeiter)
         print(f"Mails: {mails}")
