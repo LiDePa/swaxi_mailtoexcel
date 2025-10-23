@@ -48,21 +48,33 @@ def lade_mails_aus_outlook(startdatum, enddatum):
 		return []
 	# Nur Mails aus Inbox und Archive > Dienstwünsche / FZ
 	mails = []
+
+	# Outlook Restrict-Filter für Datum (ReceivedTime)
+	# Nur Datumsteil (mm/dd/yyyy), Uhrzeit wird in Python gefiltert
+	def restrict_filter(start):
+		start_str = start.strftime('%m/%d/%Y')
+		return f"[ReceivedTime] >= '{start_str}'"
+
 	# Inbox suchen (case-insensitive)
 	inbox = finde_ordner(konto, "Inbox")
 	if inbox:
-		for item in inbox.Items:
-			if hasattr(item, "ReceivedTime"):
-				empfangen = item.ReceivedTime
-				# Offset-naive Vergleich
-				if empfangen.tzinfo is not None:
-					empfangen = empfangen.replace(tzinfo=None)
-				if startdatum <= empfangen <= enddatum:
-					mail_id = len(mails) + 1
-					mailadresse = item.SenderEmailAddress
-					betreff = item.Subject
-					mailtext = item.Body
-					mails.append(MailJSON(mail_id, mailadresse, betreff, mailtext))
+		try:
+			items = inbox.Items.Restrict(restrict_filter(startdatum))
+			items.Sort("ReceivedTime", True)
+			for item in items:
+				if hasattr(item, "ReceivedTime"):
+					empfangen = item.ReceivedTime
+					# Offset-naive Vergleich
+					if empfangen.tzinfo is not None:
+						empfangen = empfangen.replace(tzinfo=None)
+					if startdatum <= empfangen <= enddatum:
+						mail_id = len(mails) + 1
+						mailadresse = item.SenderEmailAddress
+						betreff = item.Subject
+						mailtext = item.Body
+						mails.append(MailJSON(mail_id, mailadresse, betreff, mailtext))
+		except Exception as e:
+			print(f"Fehler beim Zugriff auf Inbox: {e}")
 	else:
 		print("Ordner 'Inbox' nicht gefunden!")
 
@@ -72,18 +84,22 @@ def lade_mails_aus_outlook(startdatum, enddatum):
 	if archive:
 		dienstwuensche_fz = finde_ordner(archive, "Dienstwünsche / FZ")
 	if dienstwuensche_fz:
-		for item in dienstwuensche_fz.Items:
-			if hasattr(item, "ReceivedTime"):
-				empfangen = item.ReceivedTime
-				# Offset-naive Vergleich
-				if empfangen.tzinfo is not None:
-					empfangen = empfangen.replace(tzinfo=None)
-				if startdatum <= empfangen <= enddatum:
-					mail_id = len(mails) + 1
-					mailadresse = item.SenderEmailAddress
-					betreff = item.Subject
-					mailtext = item.Body
-					mails.append(MailJSON(mail_id, mailadresse, betreff, mailtext))
+		try:
+			items = dienstwuensche_fz.Items.Restrict(restrict_filter(startdatum))
+			items.Sort("ReceivedTime", True)
+			for item in items:
+				if hasattr(item, "ReceivedTime"):
+					empfangen = item.ReceivedTime
+					if empfangen.tzinfo is not None:
+						empfangen = empfangen.replace(tzinfo=None)
+					if startdatum <= empfangen <= enddatum:
+						mail_id = len(mails) + 1
+						mailadresse = item.SenderEmailAddress
+						betreff = item.Subject
+						mailtext = item.Body
+						mails.append(MailJSON(mail_id, mailadresse, betreff, mailtext))
+		except Exception as e:
+			print(f"Fehler beim Zugriff auf Dienstwünsche / FZ: {e}")
 	else:
 		print("Ordner 'Archive > Dienstwünsche / FZ' nicht gefunden!")
 

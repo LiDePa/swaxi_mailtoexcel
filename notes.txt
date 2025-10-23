@@ -20,8 +20,13 @@ vor Eintrag in excel tabelle, zwei listen aller schwierigen Mails zeigen, eine m
 von LLM confidence value zurückgeben lassen und die gelisteten Mails entsprechend sortieren. 
 
 bei "in excel eintragen" tabelle vorher in gui zeigen und welche mail zu welchen eintragungen geführt hat. (wenn man in der liste auf die mail klickt, werden die entsprechenden eintragungen in der tabelle farblich hervorgehoben)
+Dazu zwei Matrizen halten: Eine welche die süätere excel tabelle spiegelt und eine welche bei an jeder Position die id der entsprechenden Mail hält, sodass die Mail die zum EIntrag geführt hat, leicht zugeordnet werden kann.
 
 
 
 
-fehlermeldung wenn excel tabelle geöffnet, outlook nicht geöffnet.
+fehlermeldung wenn excel tabelle geöffnet, outlook nicht geöffnet, etc
+
+
+
+
