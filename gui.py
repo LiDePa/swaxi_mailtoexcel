@@ -56,25 +56,6 @@ class ZeitraumDialog:
 		self.kw_spinbox = tk.Spinbox(master, from_=1, to=53, width=3, format="%02.0f", font=spin_font, textvariable=self.kw_var, wrap=True)
 		self.kw_spinbox.grid(row=0, column=8)
 
-		# KW automatisch aktualisieren, wenn Startdatum geändert wird
-		def update_kw(*args):
-			try:
-				if DateEntry:
-					d = self.start_date.get_date()
-				else:
-					d = datetime.strptime(self.start_date.get(), "%Y-%m-%d")
-				# Nächste KW
-				kw = d.isocalendar()[1] + 1
-				if kw > 52:
-					kw = 1
-				self.kw_var.set(str(kw))
-			except Exception:
-				self.kw_var.set("")
-		if DateEntry:
-			self.start_date.bind("<<DateEntrySelected>>", lambda e: update_kw())
-		else:
-			self.start_date.bind("<FocusOut>", lambda e: update_kw())
-
 		# Stunde und Minute Spinboxen (größer anzeigen)
 		spin_font = ("Arial", 14)  # größere Schrift für bessere Sichtbarkeit
 		tk.Label(master, text="Stunde").grid(row=0, column=2)
@@ -89,6 +70,7 @@ class ZeitraumDialog:
 		self.start_minute.grid(row=0, column=6)
 		self.start_minute.delete(0, tk.END)
 		self.start_minute.insert(0, "00")
+
 
 
 		# Enddatum: Kalender und Uhr
@@ -112,6 +94,14 @@ class ZeitraumDialog:
 		self.end_minute.grid(row=1, column=6)
 		self.end_minute.delete(0, tk.END)
 		self.end_minute.insert(0, now.strftime("%M"))
+
+		# Workaround für tkcalendar.DateEntry Overlay-Bug:
+		if DateEntry:
+			def _init_dateentry_overlay():
+				# Enddatum-DateEntry einmal kurz öffnen und schließen
+				self.end_date.event_generate('<Button-1>')
+				self.master.after(100, lambda: self.master.focus())
+			self.master.after(200, _init_dateentry_overlay)
 
 
 

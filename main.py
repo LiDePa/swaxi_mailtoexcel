@@ -14,8 +14,5 @@ if __name__ == "__main__":
         mails = lade_mails_aus_outlook(start, end)
         mitarbeiter = lade_mitarbeiter()
         mails = anonymisiere_mailtexte(mails, mitarbeiter)
-        print(f"Mails: {mails}")
-        # schichten_text und kalenderwoche stehen jetzt für weitere Verarbeitung (z.B. llm.py) bereit
-        # Beispiel: Zugriff auf schichten_text und kalenderwoche
-        # print(f"Schichten-Text: {schichten_text}")
-        # print(f"Kalenderwoche: {kalenderwoche}")
+        for mail in mails:
+            print(mail.Mailtext_anonym)
