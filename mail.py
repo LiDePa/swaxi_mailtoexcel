@@ -2,17 +2,9 @@ import win32com.client
 from datetime import datetime
 
 
-
-# Beispielhafte Zeitpunkte (können später durch GUI ersetzt werden)
-START_DATUM = datetime(2025, 10, 14, 0, 0)
-END_DATUM = datetime(2025, 10, 18, 23, 59)
-
-
-
 class MailJSON:
 	def __init__(self, mail_id, mailadresse, betreff, mailtext):
 		self.Mail_ID = mail_id
-		self.Fahrernummer = ""
 		self.Kurzname = ""
 		self.Mailadresse = mailadresse
 		self.Betreff = betreff
@@ -105,6 +97,36 @@ def lade_mails_aus_outlook(startdatum, enddatum):
 
 	print(f"{len(mails)} Mails im Zeitraum gefunden.")
 	return mails
+
+
+# Neue Funktion: Weise jedem MailJSON-Objekt den Kurzname des passenden Mitarbeiters zu
+def weise_kurznamen_zu(mailjson_liste, mitarbeiter_liste):
+	"""
+	Ergänzt für jedes MailJSON-Objekt den Kurzname des zugehörigen Mitarbeiters anhand der Mailadresse.
+	Die Zuordnung erfolgt case-insensitive und unterstützt ggf. mehrere Mailadressen pro Mitarbeiter (Komma/Strichpunkt-getrennt).
+	"""
+	# Mapping: Mailadresse (lower) -> Kurzname
+	mail_map = {}
+	for m in mitarbeiter_liste:
+		if not m.mailadressen:
+			continue
+		# Mailadressen können durch Komma oder Semikolon getrennt sein
+		for addr in str(m.mailadressen).replace(';', ',').split(','):
+			addr = addr.strip().lower()
+			if addr:
+				mail_map[addr] = m.kurzname
+	for mail in mailjson_liste:
+		mail_addr = str(mail.Mailadresse).strip().lower()
+		# Versuche exakten Match
+		if mail_addr in mail_map:
+			mail.Kurzname = mail_map[mail_addr]
+		else:
+			# Fallback: Teilstring-Match (z.B. falls Outlook-Adressen abweichen)
+			for k, v in mail_map.items():
+				if k and k in mail_addr:
+					mail.Kurzname = v
+					break
+	return mailjson_liste
 
 
 
