@@ -124,6 +124,8 @@ def anonymisiere_mailtexte(mailjson_liste, mitarbeiter_liste):
         if match:
             # Kürze den Text bis zum Beginn der gefundenen Zeile
             mail_text_bearbeitet = mail_text_bearbeitet[:match.start()]
+        # Entferne alle Zeilen, die eine URL mit 'https://' enthalten
+        mail_text_bearbeitet = '\n'.join([line for line in mail_text_bearbeitet.splitlines() if 'https://' not in line])
             
         # B. Mehrere Zeilenumbrüche auf ein einzelnes \n reduzieren
         mail_text_bearbeitet = zeilenumbruch_pattern.sub("\n", mail_text_bearbeitet)
