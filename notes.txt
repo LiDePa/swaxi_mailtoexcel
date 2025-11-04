@@ -1,29 +1,16 @@
 
-
-vornamen und nachnamen nach string (leerzeichen) unterteilen und einzeln zu regex hinzufügen
-
-FIRST cut mail if "Swaxi Dispo" or "swaxi-dispo@sw-augsburg.de" appears. delete the entire line
-
-then replace all names
-
-add any string containing an @ to regex anonymization, replace with anon_mail
-
-look for phone numbers?
-
-
-
+Pinning your production applications to specific model snapshots (like gpt-4.1-2025-04-14 for example) to ensure consistent behavior
 
 LLM sagen dass mails anonymisiert und namen mit anon, anon_mail etc ersetzt wurden.
 statt konkretem schichtwunsch auch entweder EGAL oder "4h ab 14 uhr" oder sowas erkennen und eintragen
+
+You could include language in your prompt to specify that you want to return empty parameters, or a specific sentence, if the model detects that the input is incompatible with the task.
 
 vor Eintrag in excel tabelle, zwei listen aller schwierigen Mails zeigen, eine mit allen die einen Schichtwunsch enthalten und eine weitere liste mit allen mails ohne schichtwunsch
 von LLM confidence value zurückgeben lassen und die gelisteten Mails entsprechend sortieren. 
 
 bei "in excel eintragen" tabelle vorher in gui zeigen und welche mail zu welchen eintragungen geführt hat. (wenn man in der liste auf die mail klickt, werden die entsprechenden eintragungen in der tabelle farblich hervorgehoben)
-Dazu zwei Matrizen halten: Eine welche die süätere excel tabelle spiegelt und eine welche bei an jeder Position die id der entsprechenden Mail hält, sodass die Mail die zum EIntrag geführt hat, leicht zugeordnet werden kann.
-
-
-
+Dazu zwei Matrizen halten: Eine welche die spätere excel tabelle abbildet und eine welche bei an jeder Position die id der entsprechenden Mail hält, sodass die Mail die zum EIntrag geführt hat, leicht zugeordnet werden kann.
 
 fehlermeldung wenn excel tabelle geöffnet, outlook nicht geöffnet, etc
 

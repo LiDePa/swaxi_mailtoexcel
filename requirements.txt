@@ -6,3 +6,4 @@ tqdm
 presidio-analyzer
 presidio-anonymizer
 python-dotenv
+openai
