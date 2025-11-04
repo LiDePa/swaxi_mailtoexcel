@@ -1,9 +1,10 @@
 import win32com.client
+from collections import OrderedDict
 from datetime import datetime
 
 
 class MailJSON:
-	def __init__(self, mail_id, mailadresse, betreff, mailtext):
+	def __init__(self, mail_id, mailadresse, betreff, mailtext, empfangen=None):
 		self.Mail_ID = mail_id
 		self.Kurzname = ""
 		self.Mailadresse = mailadresse
@@ -12,6 +13,7 @@ class MailJSON:
 		self.Mailtext_anonym = ""
 		self.Schichtwünsche = ""
 		self.Kommentar = ""
+		self.Empfangen = empfangen
 	def __repr__(self):
 		return f"<MailJSON {self.Mail_ID}: {self.Betreff} von {self.Mailadresse}>"
 
@@ -64,7 +66,7 @@ def lade_mails_aus_outlook(startdatum, enddatum):
 						mailadresse = item.SenderEmailAddress
 						betreff = item.Subject
 						mailtext = item.Body
-						mails.append(MailJSON(mail_id, mailadresse, betreff, mailtext))
+						mails.append(MailJSON(mail_id, mailadresse, betreff, mailtext, empfangen))
 		except Exception as e:
 			print(f"Fehler beim Zugriff auf Inbox: {e}")
 	else:
@@ -89,7 +91,7 @@ def lade_mails_aus_outlook(startdatum, enddatum):
 						mailadresse = item.SenderEmailAddress
 						betreff = item.Subject
 						mailtext = item.Body
-						mails.append(MailJSON(mail_id, mailadresse, betreff, mailtext))
+						mails.append(MailJSON(mail_id, mailadresse, betreff, mailtext, empfangen))
 		except Exception as e:
 			print(f"Fehler beim Zugriff auf Dienstwünsche / FZ: {e}")
 	else:
@@ -102,31 +104,69 @@ def lade_mails_aus_outlook(startdatum, enddatum):
 # Neue Funktion: Weise jedem MailJSON-Objekt den Kurzname des passenden Mitarbeiters zu
 def weise_kurznamen_zu(mailjson_liste, mitarbeiter_liste):
 	"""
-	Ergänzt für jedes MailJSON-Objekt den Kurzname des zugehörigen Mitarbeiters anhand der Mailadresse.
-	Die Zuordnung erfolgt case-insensitive und unterstützt ggf. mehrere Mailadressen pro Mitarbeiter (Komma/Strichpunkt-getrennt).
+	Ergänzt für jedes MailJSON-Objekt den Kurzname des zugehörigen Mitarbeiters anhand der Mailadresse
+	und führt mehrere Mails desselben Mitarbeiters zusammen. Neuere Inhalte werden ans Ende des
+	bereits bereinigten Mailtextes angehängt.
 	"""
-	# Mapping: Mailadresse (lower) -> Kurzname
+	if not mailjson_liste:
+		return mailjson_liste
+
 	mail_map = {}
 	for m in mitarbeiter_liste:
 		if not m.mailadressen:
 			continue
-		# Mailadressen können durch Komma oder Semikolon getrennt sein
 		for addr in str(m.mailadressen).replace(';', ',').split(','):
 			addr = addr.strip().lower()
 			if addr:
 				mail_map[addr] = m.kurzname
+
 	for mail in mailjson_liste:
 		mail_addr = str(mail.Mailadresse).strip().lower()
-		# Versuche exakten Match
 		if mail_addr in mail_map:
 			mail.Kurzname = mail_map[mail_addr]
 		else:
-			# Fallback: Teilstring-Match (z.B. falls Outlook-Adressen abweichen)
 			for k, v in mail_map.items():
 				if k and k in mail_addr:
 					mail.Kurzname = v
 					break
-	return mailjson_liste
+
+	# Sortiere nach Empfangszeit, damit jüngere Mails später angehängt werden.
+	# Der Enumerationsindex stellt sicher, dass wir bei fehlender Zeitangabe stabil bleiben.
+	indexed_sorted_mails = sorted(
+		enumerate(mailjson_liste),
+		key=lambda pair: (
+			pair[1].Empfangen or datetime.min,
+			pair[0],
+		),
+	)
+
+	combined = OrderedDict()
+	separator = "\n---\n"
+
+	for _, mail in indexed_sorted_mails:
+		# Verwende Kurzname als Schlüssel, falle auf Mailadresse zurück, falls kein Match.
+		key = mail.Kurzname or str(mail.Mailadresse).strip().lower()
+		if key not in combined:
+			combined[key] = mail
+			continue
+
+		existing = combined[key]
+		if mail.Mailtext_anonym:
+			if existing.Mailtext_anonym:
+				existing.Mailtext_anonym = f"{existing.Mailtext_anonym}{separator}{mail.Mailtext_anonym}"
+			else:
+				existing.Mailtext_anonym = mail.Mailtext_anonym
+		if mail.Mailtext:
+			if existing.Mailtext:
+				existing.Mailtext = f"{existing.Mailtext}{separator}{mail.Mailtext}"
+			else:
+				existing.Mailtext = mail.Mailtext
+
+	combined_list = list(combined.values())
+	for new_id, mail in enumerate(combined_list, start=1):
+		mail.Mail_ID = new_id
+
+	return combined_list
 
 
 

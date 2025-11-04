@@ -81,6 +81,7 @@ Dienstag 14.10
 D.33
 Mit freundlichen Grüßen
 Anon Anon
+---
 Anon Anon fahrernummer 6397
 korrigiere, die Dienstag D.33 kann ich doch nicht übernehmen.
 Mit freundlichen Grüßen
@@ -110,18 +111,85 @@ Fahrernummer 6325
 Gruß Anon Anon
 </input>
 <output>
-{
-  "ist_schichtwunsch": false,
-  "schichtwuensche": {},
-  "kommentar": ""
-}
+{"ist_schichtwunsch": false, "schichtwuensche": {}, "kommentar": ""}
 </output>
 </example>
 
 <example id="example-3">
-  <input></input>
-  <output>{
-  "ist_schichtwunsch": true,
+<verfügbare_Schichten>
+Montag
+
+D. 41
+
+D. 60
+
+
+
+Dienstag
+
+D. 41
+
+D. 60
+
+
+
+Freitag
+
+D. 55
+
+D. 43
+</verfügbare_Schichten>
+<input>
+Hallo Anon
+Ich würde gerne kW 42 entweder 20.10 oder 21.10 D.13(17.45-21-45) gerne übernehmen wenn es möglich ist beide..Danke..
+LG
+Anon
+</input>
+<output>{
+"ist_schichtwunsch": true,
+  "schichtwuensche": {
+    "Montag": [],
+    "Dienstag": [],
+    "Mittwoch": [],
+    "Donnerstag": [],
+    "Freitag": [],
+    "Samstag": [],
+    "Sonntag": []
+  },
+  "kommentar": ""}</output>
+</example>
+
+<example id="example-4">
+<verfügbare_Schichten>
+Montag
+
+D. 41
+
+D. 60
+
+
+
+Dienstag
+
+D. 41
+
+D. 60
+
+
+
+Freitag
+
+D. 55
+
+D. 43
+</verfügbare_Schichten>
+<input>
+Servus,
+ich könnte am Samstag eine Schicht übernehmen, falls noch welche verfügbar sind.
+Mit freundlichen Grüßen
+</input>
+<output>{
+"ist_schichtwunsch": true,
   "schichtwuensche": {
     "Montag": [],
     "Dienstag": [],
@@ -134,8 +202,6 @@ Gruß Anon Anon
   "kommentar": ""}</output>
 </example>
 """
-
-#TODO: was wenn sich ein Mitarbeiter für alles verfügbar meldet?
 
 def build_instructions(available_shifts, exsamples=examples):
 	

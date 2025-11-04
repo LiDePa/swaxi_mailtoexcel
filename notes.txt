@@ -1,3 +1,8 @@
+mails von adressen die nicht in mitarbeiter.xlsx vorkommen flaggen, in gui anzeigen und nur behandeln wenn explizit vom nutzer gewünscht.
+
+was wenn Mitarbeiter keine Wochentage sondern nur daten nennt? 
+
+was wenn sich ein Mitarbeiter für alles verfügbar meldet?
 
 Pinning your production applications to specific model snapshots (like gpt-4.1-2025-04-14 for example) to ensure consistent behavior
 

@@ -106,7 +106,7 @@ class ZeitraumDialog:
 
 
 		# Textfeld für verfügbare Schichten (800 Pixel Standardhöhe, resizable)
-		tk.Label(master, text="Verügbare Schichten (aus Mail kopieren):").grid(row=3, column=0, columnspan=9, sticky="w", pady=(10,0))
+		tk.Label(master, text="Verfügbare Schichten (aus eigener Mail kopieren):").grid(row=3, column=0, columnspan=9, sticky="w", pady=(10,0))
 		self.schichten_text = tk.Text(master, height=1, width=80, wrap="word")
 		self.schichten_text.grid(row=4, column=0, columnspan=9, sticky="nsew")
 		# Setze die Höhe auf 800 Pixel
