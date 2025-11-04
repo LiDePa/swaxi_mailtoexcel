@@ -20,45 +20,106 @@ class MailExtraction(BaseModel):
     kommentar: str
 
 
-#TODO: schichtwünsche nach tagen unterscheiden
-#TODO: schichten in klammern wenn entweder an einem oder anderen tag möglich
-#TODO: beides in prompts erklären
-
 examples = """
-<beispiel>
-  <input>Verfügbare Schichten: Mo Früh, Di Spät. Mailtext: 'Hallo, ich hätte gerne Mo Früh und optional Di Spät. Danke!'</input>
-  <output>{
-  "ist_schichtwunsch": true,
-  "schichtwuensche": {
-    "Montag": ["Frühschicht", "Mittagsschicht"],
-    "Dienstag": ["Spätschicht"],
-    "Mittwoch": [],
-	"Donnerstag": [],
-	"Freitag": [],
-	"Samstag": [],
-	"Sonntag": []
-  },
-  "kommentar": "Keine besonderen Wünsche für Mittwoch."
-}</output>
-</beispiel>
-<beispiel>
-  <input>Verfügbare Schichten: Mi Nacht, Do Früh. Mailtext: 'Kann diese Woche leider nicht arbeiten.'</input>
-  <output>{
-  "ist_schichtwunsch": true,
-  "schichtwuensche": {
-    "Montag": [],
-    "Dienstag": [],
-    "Mittwoch": [],
-	"Donnerstag": [],
-	"Freitag": [],
-	"Samstag": [],
-	"Sonntag": []
-  },
-  "kommentar": "Keine besonderen Wünsche für Mittwoch."
-}</output>
-</beispiel>
-<beispiel>
-  <input>Verfügbare Schichten: Fr Spät, Sa Früh. Mailtext: 'Bitte tragt mich für Fr Spät ein, Samstag kann ich nur, wenn es dringend ist.'</input>
+<example id="example-1">
+<verfügbare_Schichten>
+Mittwoch 08.10.
+
+D. 41
+
+D. 60
+
+
+
+Donnerstag
+
+D. 41
+
+D. 60
+
+
+
+Freitag
+
+D. 55
+
+D. 43
+
+
+
+Samstag
+
+D. 20
+
+D. 90
+
+D. 91
+
+
+
+Dienstag
+
+D. 40
+
+D. 33
+</verfügbare_Schichten>
+<input>
+Anon Anon fahrernummer 6397
+Mittwoch 08.10
+D.41 oder D60
+Und
+Donnerstag 09.10
+D.41
+Oder
+Freitag 10.10
+D.43
+Oder
+Samstag 11.10
+D.90
+Oder
+Dienstag 14.10
+D.33
+Mit freundlichen Grüßen
+Anon Anon
+Anon Anon fahrernummer 6397
+korrigiere, die Dienstag D.33 kann ich doch nicht übernehmen.
+Mit freundlichen Grüßen
+Anon Anon
+</input>
+<output>
+{"ist_schichtwunsch": true, "schichtwuensche": {"Mittwoch": ["D41", "D60"], "Donnerstag": ["D41"], "Freitag": ["D43"], "Samstag": ["D90"],"kommentar": ""}
+</output>
+</example>
+
+<example id="example-2">
+<verfügbare_Schichten>
+Sonntag
+
+D. 41
+
+
+
+Montag 13.10.
+
+D. 40
+</verfügbare_Schichten>
+<input>
+Hallo, 
+ich muss leider am 22.10. meine Schicht stornieren, da ich von meinem Hauptjob kurzfristig wegfahren muss. Entschuldigung.
+Fahrernummer 6325
+Gruß Anon Anon
+</input>
+<output>
+{
+  "ist_schichtwunsch": false,
+  "schichtwuensche": {},
+  "kommentar": ""
+}
+</output>
+</example>
+
+<example id="example-3">
+  <input></input>
   <output>{
   "ist_schichtwunsch": true,
   "schichtwuensche": {
@@ -70,51 +131,35 @@ examples = """
     "Samstag": [],
     "Sonntag": []
   },
-  "kommentar": "Keine besonderen Wünsche für Mittwoch."
-}</output>
-</beispiel>
+  "kommentar": ""}</output>
+</example>
 """
 
-def build_instructions(available_shifts, examples=examples):
+#TODO: was wenn sich ein Mitarbeiter für alles verfügbar meldet?
+
+def build_instructions(available_shifts, exsamples=examples):
 	
 	return f"""
-Du bist Teil eines automatisierten KI-Workflows. In einer Angebots-Mail hat ein Schichtleiter seinen Mitarbeitern verfügbare Schichten für die kommende Woche angeboten und du extrahierst nun alle Schichtwünsche aus deren Antworten. Dazu erhältst du die vom Schichtleiter angebotene Liste der verfügbaren Schichten, sowie den anonymisierten Text einer Mail die nach Absenden der Angebots-Mail im Postfach des Schichtleiters eingegangen ist.
+Du bist Teil eines automatisierten KI-Workflows. In einer Angebots-Mail hat ein Schichtleiter seinen Mitarbeitern verfügbare_Schichten für die kommende Woche angeboten und du extrahierst nun alle Schichtwünsche aus deren Antworten. Dazu erhältst du die vom Schichtleiter angebotene Liste der verfügbaren Schichten, sowie den anonymisierten Text einer Mail die nach Absenden der Angebots-Mail im Postfach des Schichtleiters eingegangen ist. Sollte der selbe Mitarbeiter mehrere Mails geschickt haben (z.B. um sich zu korrigieren), erhältst du trotzdem einen einzelnen Mailtext der alle seine Antworten zusammenfasst.
 
-Verfügbare Schichten:
+# Anweisungen zur Extraktion
+* Analysiere den Mailtext und bestimme zunächst, ob es sich dabei überhaupt um eine Antwort auf die Angebots-Mail des Schichtleiters handelt. Falls nicht, setze ist_schichtwunsch auf False und lasse die Felder 'schichtwuensche' und 'kommentar' leer. Falls du unsicher bist, ob es sich um einen Schichtwunsch handelt, entscheide dich im Zweifelsfall für ist_schichtwunsch=True.
+* Falls der Mailtext wiederum Informationen zur Verfügbarkeit des Mitarbeiters oder eben konkrete Schichtwünsche beinhaltet, setze ist_schichtwunsch=True, und entnehme dem Mailtext sowohl die vom Mitarbeiter gewünschten Schichten für das Feld 'schichtwuensche', als auch wichtige Kommentare zur Verfügbarkeit des Mitarbeiters, für das Feld 'kommentar'. Wenn keine Schichtwünsche oder keine relevanten Kommentare vorhanden sind, lass das entsprechende Feld leer. Sortiere die Schichtwünsche im Feld 'schichtwuensche' nach Wochentagen in der Reihenfolge wie sie in verfügbare_Schichten vorkommen. Das Datum kannst du immer weg lassen.
+* Oft wünschen sich die Mitarbeiter nicht alle gelisteten Schichten zusammen, sondern entweder bestimmte Schichten an einem bestimmten Tag oder andere Schichten an einem anderen Tag (logische XOR-Beziehung). Überprüfe explizit, ob im Mailtext solche XOR-Schichten formuliert sind, und setze diese im Feld 'schichtwuensche' in Klammern. Beachte dabei: Es kann immer maximal eine Schicht pro Tag vom Mitarbeiter übernommen werden, somit stellen entweder-oder Formulierungen innerhalb des selben Tages keine XOR-Schichten dar.
+* Solltest du die Mail als Schichtwunsch identifizieren, aber keine konkreten Schichtwünsche oder Kommentare extrahieren können, setze ist_schichtwunsch auf True und lasse die Felder 'schichtwuensche' und 'kommentar' leer. Tu das selbe falls sich der Mitarbeiter eine Schicht wünscht, die nicht in der Liste der verfügbaren Schichten enthalten ist.
+
+# verfügbare_Schichten
 <verfügbare_schichten>{available_shifts}</verfügbare_schichten>
 
-Anweisungen zur Extraktion:
-
-* Analysiere den Mailtext und bestimme zunächst, ob es sich dabei überhaupt um eine Antwort auf die Angebots-Mail des Schichtleiters handelt. Falls nicht, setze ist_schichtwunsch auf False und lasse die Felder 'schichtwuensche' und 'kommentar' leer.
-* Falls der Mailtext wiederum Informationen zur Verfügbarkeit des Mitarbeiters oder eben konkrete Schichtwünsche beinhaltet, setze ist_schichtwunsch=True, und entnehme dem Mailtext sowohl die vom Mitarbeiter gewünschten Schichten für das Feld 'schichtwuensche', als auch relevante Kommentare zur Verfügbarkeit des Mitarbeiters, für das Feld 'kommentar'. Wenn keine Schichtwünsche oder keine relevanten Kommentare vorhanden sind, lass das entsprechende Feld leer. Sortiere die Schichtwünsche im Feld 'schichtwuensche' nach Wochentagen.
-* Oft wünschen sich die Mitarbeiter nicht alle gelisteten Schichten zusammen, sondern entweder bestimmte Schichten an einem bestimmten Tag oder andere Schichten an einem anderen Tag (logische XOR-Beziehung). Überprüfe explizit, ob im Mailtext solche XOR-Schichten formuliert sind, und setze diese im Feld 'schichtwuensche' in Klammern. Beachte dabei: Es kann immer maximal eine Schicht pro Tag vom Mitarbeiter übernommen werden, somit stellen entweder-oder Formulierungen innerhalb des selben Tages keine XOR-Schichten dar.
-
-Beispiele zur Veranschaulichung:
+# Beispiele zur Veranschaulichung
 <beispiele>{examples}</beispiele>
 """
 
-EXAMPLE_BLOCKS = [
-	{
-		"input": "Verfügbare Schichten: Mo Früh, Di Spät. Mailtext: 'Hallo, ich hätte gerne Mo Früh und optional Di Spät. Danke!'",
-		"output": "ist_schichtwunsch: True; schichtwuensche: 'Mo Früh, optional Di Spät'; kommentar: 'Keine weiteren Angaben'",
-	},
-	{
-		"input": "Verfügbare Schichten: Mi Nacht, Do Früh. Mailtext: 'Kann diese Woche leider nicht arbeiten.'",
-		"output": "ist_schichtwunsch: False; schichtwuensche: ''; kommentar: ''",
-	},
-	{
-		"input": "Verfügbare Schichten: Fr Spät, Sa Früh. Mailtext: 'Bitte tragt mich für Fr Spät ein, Samstag kann ich nur, wenn es dringend ist.'",
-		"output": "ist_schichtwunsch: True; schichtwuensche: 'Fr Spät, Sa Früh bei Bedarf'; kommentar: 'Samstag nur im Notfall'",
-	},
-]
-
 # Asynchrone Funktion für LLM-Request
-async def process_mail_anonym(mail, available_shifts):
-	instructions = build_instructions(available_shifts)
-	prompt = mail.Mailtext_anonym
+async def process_mail_anonym(instructions, prompt):
 	try:
 		response = await client.responses.parse(
-			model="gpt-4o-2024-08-06",
+			model="gpt-5-2025-08-07",
 			input=[
 				{"role": "developer", "content": instructions},
 				{"role": "user", "content": prompt},

@@ -15,5 +15,6 @@ if __name__ == "__main__":
         mails = lade_mails_aus_outlook(start, end)
         mails = weise_kurznamen_zu(mails, mitarbeiter)
         mails = anonymisiere_mailtexte(mails, mitarbeiter)
+        print(f"Verfügbare Schichten:\n{schichten_text}\n")
         for mail in mails:
             print(mail.Mailtext_anonym)
