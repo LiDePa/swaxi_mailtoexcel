@@ -1,15 +1,14 @@
-mails von adressen die nicht in mitarbeiter.xlsx vorkommen flaggen, in gui anzeigen und nur behandeln wenn explizit vom nutzer gewünscht.
+gui -> flask web based
 
-was wenn Mitarbeiter keine Wochentage sondern nur daten nennt? 
+mails von adressen die nicht in mitarbeiter.xlsx vorkommen flaggen, in gui anzeigen und nur behandeln wenn explizit vom nutzer gewünscht und anonymisierung sichergestellt (oder darauf hinweisen dass mail nicht behandelt werden kann)
 
-was wenn sich ein Mitarbeiter für alles verfügbar meldet?
+Beispiel mit Kommentar
 
-Pinning your production applications to specific model snapshots (like gpt-4.1-2025-04-14 for example) to ensure consistent behavior
+@AlicanThomas: was wenn sich ein Mitarbeiter für alles verfügbar meldet? alle schichten eintragen oder in den Kommentar?
 
-LLM sagen dass mails anonymisiert und namen mit anon, anon_mail etc ersetzt wurden.
 statt konkretem schichtwunsch auch entweder EGAL oder "4h ab 14 uhr" oder sowas erkennen und eintragen
 
-You could include language in your prompt to specify that you want to return empty parameters, or a specific sentence, if the model detects that the input is incompatible with the task.
+bei erstellung von tabelle gucken ob Schlüssel in dict Wochentag beinhält zB "Montag"
 
 vor Eintrag in excel tabelle, zwei listen aller schwierigen Mails zeigen, eine mit allen die einen Schichtwunsch enthalten und eine weitere liste mit allen mails ohne schichtwunsch
 von LLM confidence value zurückgeben lassen und die gelisteten Mails entsprechend sortieren. 
@@ -20,5 +19,3 @@ Dazu zwei Matrizen halten: Eine welche die spätere excel tabelle abbildet und e
 fehlermeldung wenn excel tabelle geöffnet, outlook nicht geöffnet, etc
 
 evals (prompting)
-
-
