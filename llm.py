@@ -3,7 +3,8 @@
 import os
 from dotenv import load_dotenv
 from openai import AsyncOpenAI
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+from typing import List
 import asyncio
 
 # .env laden
@@ -14,9 +15,18 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 client = AsyncOpenAI(api_key=OPENAI_API_KEY)
 
 
-class output_JSON(BaseModel):
+class Schichtwuensche(BaseModel):
+    Mittwoch: List[str] = Field(default_factory=list)
+    Donnerstag: List[str] = Field(default_factory=list)
+    Freitag: List[str] = Field(default_factory=list)
+    Samstag: List[str] = Field(default_factory=list)
+    Sonntag: List[str] = Field(default_factory=list)
+    Montag: List[str] = Field(default_factory=list)
+    Dienstag: List[str] = Field(default_factory=list)
+
+class OutputJSON(BaseModel):
     ist_schichtwunsch: bool
-    schichtwuensche: dict[str, list[str]]  # e.g., {"Montag": ["D20", "D30"], "Dienstag": ["D50"]}
+    schichtwuensche: Schichtwuensche
     kommentar: str
 
 
@@ -79,6 +89,7 @@ D.90
 Oder
 Dienstag 14.10
 D.33
+Hinweis: Der Zeitraum ist vorlesungsfreie Zeit i.S.d. Werkstudierendenregelung. Daher sind hier mehr als 20h pro Woche möglich.
 Mit freundlichen Grüßen
 Anon Anon
 ---
@@ -90,14 +101,14 @@ Anon Anon
 <output>{
 "ist_schichtwunsch": True,
   "schichtwuensche": {
-    "Mittwoch 8.10.": ["D.41", "D.60"],
+    "Mittwoch": ["D.41", "D.60"],
     "Donnerstag": ["(D.41)"],
     "Freitag": ["(D.43)"],
     "Samstag": ["(D.90)"],
     "Sonntag": [],
-    "Dienstag 14.10.": []
+    "Dienstag": []
   },
-  "kommentar": ""}
+  "kommentar": "Mehr als 20 h pro Woche möglich, da vorlesungsfreie Zeit."}
 </output>
 </example>
 
@@ -120,7 +131,17 @@ Fahrernummer 6325
 Gruß Anon Anon
 </input>
 <output>
-{"ist_schichtwunsch": False, "schichtwuensche": {}, "kommentar": ""}
+{"ist_schichtwunsch": False,
+  "schichtwuensche": {
+    "Mittwoch": [],
+    "Donnerstag": [],
+    "Freitag": [],
+    "Samstag": [],
+    "Sonntag": [],
+    "Montag": [],
+    "Dienstag": []
+  }, 
+	"kommentar": ""}
 </output>
 </example>
 
@@ -162,8 +183,8 @@ Anon
     "Freitag": [],
     "Samstag": [],
     "Sonntag": [],
-    "Montag": [D.13],
-    "Dienstag": [D.21]
+    "Montag": ["D.13"],
+    "Dienstag": ["D.13"]
   },
   "kommentar": ""}
 </output>
@@ -204,28 +225,84 @@ Mit freundlichen Grüßen
   "kommentar": ""}
 </output>
 </example>
+
+<example id="example-5">
+<verfügbare_Schichten>
+Mittwoch 06.08.
+D.33
+Donnerstag 07.08.
+D.14
+D.40
+D.37
+Freitag 08.08.
+D.80
+Samstag 09.08.
+D.33
+Sonntag 10.08.
+D.21
+D.41
+D.39
+Montag 11.08.
+D.14
+D.16
+Dienstag 12.08.
+D.2
+D.14
+D.16
+</verfügbare_Schichten>
+<input>
+Servus Anon, 
+in KW32 (vorlesungsfreie Zeit) würde ich gerne noch folgende Dienste zusätzlich übernehmen: 
+Mittwoch 06.08.: D.33
+Donnerstag 07.08.: D.40 oder auch D.37
+Sonntag: 10.08.: D.41 oder notfalls auch D.39
+Montag 11.08.: D.16 
+Gib mir gerne so viele Dienste wie möglich. 
+Beste Grüße 
+Anon Anon
+</input>
+<output>{
+"ist_schichtwunsch": True,
+  "schichtwuensche": {
+    "Mittwoch": ["D.33"],
+    "Donnerstag": ["D.40", "D.37"],
+    "Freitag": [],
+    "Samstag": [],
+    "Sonntag": ["D.41", "D.39"],
+    "Montag": ["D.16"],
+    "Dienstag": []
+  },
+  "kommentar": "D.39 am Sonntag nur notfalls. Wünscht sich so viele Dienste wie möglich."}
+</output>
+</example>
 """
 
 def build_instructions(available_shifts, examples=examples):
 	
 	return f"""
-Du bist Teil eines automatisierten KI-Workflows und erstellst eine "output_JSON". In einer Angebots-Mail hat ein Schichtleiter seinen Mitarbeitern eine Liste "verfügbare_Schichten" für die kommende Woche angeboten. Du extrahierst nun alle Schichtwünsche aus deren Antworten und schreibst sie in output_JSON. Dazu erhältst du die vom Schichtleiter angebotene Liste der verfügbaren Schichten, sowie den anonymisierten Text einer Mail die nach Absenden der Angebots-Mail im Postfach des Schichtleiters eingegangen ist. Sollte der selbe Mitarbeiter mehrere Mails geschickt haben (z.B. um sich zu korrigieren), erhältst du trotzdem einen einzelnen Mailtext der alle seine Antworten zusammenfasst.
+Du erzeugst genau eine JSON im Schema "OutputJSON" anhand der Liste <verfügbare_Schichten> und eines anonymisierten Mailtexts.
 
-# Anweisungen zur Extraktion
+# Kurzüberblick
+* Bestimme, ob die Mail ein Schichtwunsch ist. Wenn nein: setze ist_schichtwunsch = False und lasse 'schichtwuensche' sowie 'kommentar' leer.
+* Falls unklar: entscheide zugunsten ist_schichtwunsch = True.
+* Mehrere zusammengefügte Mails desselben Mitarbeiters werden als ein Text behandelt. Neuere Nachrichten sind weiter unten und überschreiben vorherige Nachrichten.
 
-* Analysiere den Mailtext und bestimme zunächst, ob es sich dabei überhaupt um eine Antwort auf die Angebots-Mail des Schichtleiters handelt. Falls nicht, setze ist_schichtwunsch auf False und lasse die Felder 'schichtwuensche' und 'kommentar' leer. Du kannst in diesem Fall alle anderen Schritte überspringen. Falls du unsicher bist, ob es sich um einen Schichtwunsch handelt, entscheide dich im Zweifelsfall für ist_schichtwunsch=True.
-* Falls der Mailtext wiederum Schichtwünsche beinhält, setze ist_schichtwunsch=True, und entnehme dem Mailtext sowohl die vom Mitarbeiter gewünschten Schichten für das Feld 'schichtwuensche', als auch wichtige Kommentare zur Verfügbarkeit des Mitarbeiters, für das Feld 'kommentar' in output_JSON. Beachte dabei folgendes:
-    * Erstelle im Feld 'schitchtwuensche' als dictionary immer eine vollständige Liste der Wochentage, in der Reihenfolge, wie sie in verfügbare_Schichten genannt werden. Sollte in verfügbare_Schichten einer der sieben Wochentage nicht genannt werden, oder einen offensichtlichen Schreibfehler haben, dann füge ihn in output_JSON an der passenden Stelle selbst ein, sodass das dictionary in 'schichtwünsche' immer aus genau 7 Schlüsseln von aufeinander folgenden Wochentagen besteht. Meistens beginnt die Liste mit Mittwoch und endet mit Dienstag.
-    * Oft wünschen sich die Mitarbeiter nicht alle gelisteten Schichten zusammen, sondern entweder bestimmte Schichten an einem bestimmten Tag oder andere Schichten an einem anderen Tag (logische XOR-Beziehung). Überprüfe explizit, ob im Mailtext solche XOR-Schichten formuliert sind, und setze diese im Feld 'schichtwuensche' in Klammern. Beachte dabei: Es kann immer maximal eine Schicht pro Tag vom Mitarbeiter übernommen werden, somit stellen entweder-oder Formulierungen innerhalb des selben Tages keine XOR-Schichten dar.
-    * Sollte sich ein Mitarbeiter in seinem Mailtext für alle möglichen Schichten eines Tages bereit erklären, so trage am entsprechenden Tag nicht die Bezeichnungen der Schichten sondern "EGAL" ein. Sollte er sich für alle Schichten aller Tage bereit erklären, trage an allen Tagen "EGAL" ein.
-* Sollte ist_schichtwunsch=True sein, aber du kannst keine konkreten Schichtwünsche oder Kommentare extrahieren, oder sollte sich der Mitarbeiter auch nur eine einzige Schicht wünschen, die nicht in der vom Schichtleiter angebotenen Liste verfügbare_Schichten enthalten ist, dann erstelle kein dictionary und lasse die Felder 'schichtwuensche' und 'kommentar' leer. Tu das selbe wann immer du dir bei etwas unsicher bist.
+# Extraktionsregeln
+* Normalisiere Schicht-IDs ins Format 'D.41' (kein Leerzeichen).
+* Klammern = XOR über verschiedene Tage: Schichten, die an verschiedenen Tagen per „oder“ verbunden sind, sollen als '"(D.41)"' markiert werden (z. B. Mittwoch D.41 oder Donnerstag D.41 => "Mittwoch": ["(D.41)"], "Donnerstag": ["(D.41)"]).
+* „oder“ innerhalb desselben Tages: Liste die Schichten ohne Klammern (z. B. Mittwoch: entweder D.41 oder D.60 => ["D.41","D.60"]).
+* „und“ trennt unabhängige Wünsche.
+* Wenn alle Schichten eines Tages akzeptabel sind dann setze '"EGAL"'.
+* 'kommentar': Alle sonstigen für die Vergabe relevanten Angaben (z. B. Kann weniger/mehr Stunden machen als normalerweise, Priorisierungen zwischen gewünschten Schichten). In 'kommentar' lieber zu viel als zu wenig reinschreiben. Du entscheidest, welche Informationen für die Schichtvergabe relevant sind.
+
+# Schwierige Fälle / Sonderregeln
+* Wenn ist_schichtwunsch = True, aber sich keine verlässlichen Wünsche extrahieren lassen, dann belasse 'schichtwuensche' und 'kommentar' leer — das kennzeichnet den Fall zur manuellen Prüfung.
+* Falls nur eine gewünschte Schicht genannt wird, die nicht in <verfügbare_Schichten> steht, gilt dasselbe (leere Felder).
 
 # verfügbare_Schichten
-
 <verfügbare_Schichten>{available_shifts}</verfügbare_Schichten>
 
 # Beispiele zur Veranschaulichung
-
 <beispiele>{examples}</beispiele>
 """
 
@@ -238,7 +315,7 @@ async def process_mail_anonym(instructions, prompt):
 				{"role": "developer", "content": instructions},
 				{"role": "user", "content": prompt},
 			],
-			text_format=output_JSON,
+			text_format=OutputJSON,
 		)
 		parsed = getattr(response, "parsed", None)
 		if isinstance(parsed, list):

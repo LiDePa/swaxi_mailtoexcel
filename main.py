@@ -9,12 +9,18 @@ if __name__ == "__main__":
     mitarbeiter = lade_mitarbeiter()
     zeitraum = zeitraum_abfragen()
     if zeitraum:
-        # Neue Rückgabe: (start, end, schichten_text, kw)
+        # Rückgabe aus GUI 
         start, end, schichten_text, kalenderwoche = zeitraum
-        # Übergib start und end an lade_mails_aus_outlook
+
+        # Mails einlesen und aufbereiten
         mails = lade_mails_aus_outlook(start, end)
-        mails = weise_kurznamen_zu(mails, mitarbeiter)
         mails = anonymisiere_mailtexte(mails, mitarbeiter)
+        mails = weise_kurznamen_zu(mails, mitarbeiter)
+
+        # Prompt erstellen und mails an LLM übergeben
+        
+
+
         print(f"Verfügbare Schichten:\n{schichten_text}\n")
         for mail in mails:
             print(mail.Mailtext_anonym)

@@ -1,8 +1,10 @@
+Beispiel mit Kommentar gg
+
+remove consecutive /n in verfügbare_schichten & in examples
+
 gui -> flask web based
 
 mails von adressen die nicht in mitarbeiter.xlsx vorkommen flaggen, in gui anzeigen und nur behandeln wenn explizit vom nutzer gewünscht und anonymisierung sichergestellt (oder darauf hinweisen dass mail nicht behandelt werden kann)
-
-Beispiel mit Kommentar
 
 @AlicanThomas: was wenn sich ein Mitarbeiter für alles verfügbar meldet? alle schichten eintragen oder in den Kommentar?
 
@@ -13,9 +15,61 @@ bei erstellung von tabelle gucken ob Schlüssel in dict Wochentag beinhält zB "
 vor Eintrag in excel tabelle, zwei listen aller schwierigen Mails zeigen, eine mit allen die einen Schichtwunsch enthalten und eine weitere liste mit allen mails ohne schichtwunsch
 von LLM confidence value zurückgeben lassen und die gelisteten Mails entsprechend sortieren. 
 
-bei "in excel eintragen" tabelle vorher in gui zeigen und welche mail zu welchen eintragungen geführt hat. (wenn man in der liste auf die mail klickt, werden die entsprechenden eintragungen in der tabelle farblich hervorgehoben)
+bei "in excel eintragen" tabelle vorher in gui zeigen und welche mail zu welchen eintragungen/kommentaren geführt hat. (wenn man in der liste auf die mail klickt, werden die entsprechenden eintragungen in der tabelle farblich hervorgehoben)
 Dazu zwei Matrizen halten: Eine welche die spätere excel tabelle abbildet und eine welche bei an jeder Position die id der entsprechenden Mail hält, sodass die Mail die zum EIntrag geführt hat, leicht zugeordnet werden kann.
 
 fehlermeldung wenn excel tabelle geöffnet, outlook nicht geöffnet, etc
 
 evals (prompting)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Du bist Teil eines automatisierten KI-Workflows und erstellst eine "OutputJSON" in der vorgegebenen Struktur. 
+
+In einer "Angebots-Mail" hat ein Schichtleiter seinem Mitarbeiter eine Liste "verfügbare_Schichten" für die kommende Woche angeboten. Du klassifizierst nun die im Postfach des Schichtleiters eingegangenen Mails danach, ob sie auf die Angebots-Mail antworten und extrahierst in solchen Fällen alle Schichtwünsche und relevanten Kommentare. Dazu erhältst du die vom Schichtleiter angebotene Liste der verfügbaren Schichten, sowie einen anonymisierten Mailtext. Sollte der selbe Mitarbeiter mehrere Mails geschickt haben (z.B. um sich zu korrigieren), erhältst du trotzdem einen einzigen Mailtext der alle seine Antworten aneinanderreiht.
+
+# Anweisungen zur Extraktion
+
+* Analysiere den Mailtext und bestimme zunächst, ob es sich dabei um eine Antwort auf die Angebots-Mail des Schichtleiters handelt. Falls nicht, setze ist_schichtwunsch auf False und lasse die Felder 'schichtwuensche' und 'kommentar' leer. Du kannst in diesem Fall alle anderen Schritte überspringen. Falls du unsicher bist, ob es sich um einen Schichtwunsch handelt, entscheide dich im Zweifelsfall für ist_schichtwunsch=True.
+* Falls der Mailtext wiederum Schichtwünsche beinhält, setze ist_schichtwunsch=True, und entnehme dem Mailtext sowohl die vom Mitarbeiter gewünschten Schichten für das dictionary 'schichtwuensche', als auch relevante Kommentare zur Verfügbarkeit des Mitarbeiters, für das Feld 'kommentar' in OutputJSON. Beachte dabei folgendes:
+    * Klammern = XOR über verschiedene Tage: 
+	      * Wenn in einem Satz verschiedene Tage durch „oder“ verbunden sind (z. B. „Mittwoch oder Donnerstag“), markiere die betroffenen Schichten in Klammern.
+        * „oder“ innerhalb desselben Tages (z. B. „Mittwoch: D.41 oder D.60”) ist kein XOR — liste die Schichten ohne Klammern.
+        * Ein „und” beendet eine XOR-Kette und verbindet unabhängige Wünsche (dann normale Listeneinträge).
+        * Kurzbeispiele:
+		        * Input: Mittwoch: D.41 oder D.60 → Output: "Mittwoch": ["D.41","D.60"]
+			      * Input: Mittwoch D.41 oder Donnerstag D.41 → Output: "Mittwoch": ["(D.41)"], "Donnerstag": ["(D.41)"]
+    * Normiere Schicht-IDs auf das Format D.41 (kein Leerzeichen).
+    * Wenn alle Schichten eines Tages akzeptabel sind, setze "EGAL".
+    * Alle sonstigen für den Schichtleiter zur Schichtvergabe relevanten Informationen kommen in das Kommentarfeld. Beispielsweise wenn der Mitarbeiter erwähnt, wie viele Stunden er insgesamt machen möchte oder auch wenn er sich mehrere Schichten wünscht, ihm aber manche davon lieber sind als andere. Nutze das Kommentarfeld lieber zu oft als zu selten.
+* Schwierige Fälle: Sollte ist_schichtwunsch=True sein, du aber keine konkreten Schichtwünsche oder Kommentare extrahieren können, oder sollte sich der Mitarbeiter auch nur eine einzige Schicht wünschen, die nicht in der vom Schichtleiter angebotenen Liste verfügbare_Schichten enthalten ist, dann lasse sowohl alle Werte in 'schichtwuensche' als auch das Feld 'kommentar' leer. Eine solche OutputJSON mit ist_schichtwunsch=True aber leeren Einträgen gilt dann als schieriger Fall und wird dem Schichtleiter explizit gezeigt.
+
+# verfügbare_Schichten
+
+<verfügbare_Schichten>{available_shifts}</verfügbare_Schichten>
+
+# Beispiele zur Veranschaulichung
+
+<beispiele>{examples}</beispiele>
+
+
+
+
+ Oft wünschen sich die Mitarbeiter nicht alle gelisteten Schichten zusammen, sondern entweder bestimmte Schichten an einem bestimmten Tag oder andere Schichten an einem anderen Tag (logische XOR-Beziehung zwischen verschiedenen Tagen). Überprüfe explizit, ob im Mailtext solche "XOR-Schichten" zwischen verschiedenen Tagen formuliert sind, und setze diese im Feld 'schichtwuensche' in Klammern. Beachte dabei: Es kann immer maximal eine Schicht pro Tag vom Mitarbeiter übernommen werden, somit stellen entweder-oder Formulierungen innerhalb des selben Tages keine XOR-Schichten dar. Außerdem beendet ein "und" die XOR-Kette. Es können also in der selben Mail sowohl XOR-Schichten, als auch normale Schichten vorkommen (siehe example-1).
