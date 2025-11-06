@@ -1,8 +1,9 @@
-
+import asyncio
 
 from mail import lade_mails_aus_outlook, weise_kurznamen_zu
 from mitarbeiter import lade_mitarbeiter, anonymisiere_mailtexte
 from gui import zeitraum_abfragen
+from llm import build_instructions, process_mails_parallel
 
 
 if __name__ == "__main__":
@@ -10,7 +11,7 @@ if __name__ == "__main__":
     zeitraum = zeitraum_abfragen()
     if zeitraum:
         # Rückgabe aus GUI 
-        start, end, schichten_text, kalenderwoche = zeitraum
+        start, end, available_shifts, kalenderwoche = zeitraum
 
         # Mails einlesen und aufbereiten
         mails = lade_mails_aus_outlook(start, end)
@@ -18,9 +19,17 @@ if __name__ == "__main__":
         mails = weise_kurznamen_zu(mails, mitarbeiter)
 
         # Prompt erstellen und mails an LLM übergeben
+        instructions = build_instructions(available_shifts)
+        if mails:
+            asyncio.run(process_mails_parallel(instructions, mails))
+    print(available_shifts)
+    for mail in mails:
+        print(f"Mailtext anonymisiert:\n{mail.Mailtext_anonym}\n")
+        print(f"Schichtwunsch erkannt: {mail.ist_Schichtwunsch}")
+        print(f"Schichtwuensche: {mail.Schichtwuensche}")
+        print(f"Kommentar: {mail.Kommentar}\n{'-'*40}\n")
+
         
 
 
-        print(f"Verfügbare Schichten:\n{schichten_text}\n")
-        for mail in mails:
-            print(mail.Mailtext_anonym)
+        

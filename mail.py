@@ -11,7 +11,8 @@ class MailJSON:
 		self.Betreff = betreff
 		self.Mailtext = mailtext
 		self.Mailtext_anonym = ""
-		self.Schichtwünsche = ""
+		self.ist_Schichtwunsch = True
+		self.Schichtwuensche = {}
 		self.Kommentar = ""
 		self.Empfangen = empfangen
 	def __repr__(self):
