@@ -5,18 +5,18 @@ from datetime import datetime
 
 class MailJSON:
 	def __init__(self, mail_id, mailadresse, betreff, mailtext, empfangen=None):
-		self.Mail_ID = mail_id
-		self.Kurzname = ""
-		self.Mailadresse = mailadresse
-		self.Betreff = betreff
-		self.Mailtext = mailtext
-		self.Mailtext_anonym = ""
-		self.ist_Schichtwunsch = True
-		self.Schichtwuensche = {}
-		self.Kommentar = ""
-		self.Empfangen = empfangen
+		self.mail_id = mail_id
+		self.kurzname = ""
+		self.mailadresse = mailadresse
+		self.betreff = betreff
+		self.mailtext = mailtext
+		self.mailtext_anonym = ""
+		self.ist_schichtwunsch = True
+		self.schichtwuensche = {}
+		self.kommentar = ""
+		self.empfangen = empfangen
 	def __repr__(self):
-		return f"<MailJSON {self.Mail_ID}: {self.Betreff} von {self.Mailadresse}>"
+		return f"<MailJSON {self.mail_id}: {self.betreff} von {self.mailadresse}>"
 
 # Hilfsfunktion: Suche Ordner nach Name (case-insensitive, optional rekursiv)
 def finde_ordner(parent_folder, ordnername, rekursiv=False):
@@ -102,12 +102,12 @@ def lade_mails_aus_outlook(startdatum, enddatum):
 	return mails
 
 
-# Neue Funktion: Weise jedem MailJSON-Objekt den Kurzname des passenden Mitarbeiters zu
+# Neue Funktion: Weise jedem MailJSON-Objekt den kurzname des passenden Mitarbeiters zu
 def weise_kurznamen_zu(mailjson_liste, mitarbeiter_liste):
 	"""
-	Ergänzt für jedes MailJSON-Objekt den Kurzname des zugehörigen Mitarbeiters anhand der Mailadresse
+	Ergänzt für jedes MailJSON-Objekt den kurzname des zugehörigen Mitarbeiters anhand der mailadresse
 	und führt mehrere Mails desselben Mitarbeiters zusammen. Neuere Inhalte werden ans Ende des
-	bereits bereinigten Mailtextes angehängt.
+	bereits bereinigten mailtextes angehängt.
 	"""
 	if not mailjson_liste:
 		return mailjson_liste
@@ -122,13 +122,13 @@ def weise_kurznamen_zu(mailjson_liste, mitarbeiter_liste):
 				mail_map[addr] = m.kurzname
 
 	for mail in mailjson_liste:
-		mail_addr = str(mail.Mailadresse).strip().lower()
+		mail_addr = str(mail.mailadresse).strip().lower()
 		if mail_addr in mail_map:
-			mail.Kurzname = mail_map[mail_addr]
+			mail.kurzname = mail_map[mail_addr]
 		else:
 			for k, v in mail_map.items():
 				if k and k in mail_addr:
-					mail.Kurzname = v
+					mail.kurzname = v
 					break
 
 	# Sortiere nach Empfangszeit, damit jüngere Mails später angehängt werden.
@@ -136,7 +136,7 @@ def weise_kurznamen_zu(mailjson_liste, mitarbeiter_liste):
 	indexed_sorted_mails = sorted(
 		enumerate(mailjson_liste),
 		key=lambda pair: (
-			pair[1].Empfangen or datetime.min,
+			pair[1].empfangen or datetime.min,
 			pair[0],
 		),
 	)
@@ -145,27 +145,27 @@ def weise_kurznamen_zu(mailjson_liste, mitarbeiter_liste):
 	separator = "\n---\n"
 
 	for _, mail in indexed_sorted_mails:
-		# Verwende Kurzname als Schlüssel, falle auf Mailadresse zurück, falls kein Match.
-		key = mail.Kurzname or str(mail.Mailadresse).strip().lower()
+		# Verwende kurzname als Schlüssel, falle auf mailadresse zurück, falls kein Match.
+		key = mail.kurzname or str(mail.mailadresse).strip().lower()
 		if key not in combined:
 			combined[key] = mail
 			continue
 
 		existing = combined[key]
-		if mail.Mailtext_anonym:
-			if existing.Mailtext_anonym:
-				existing.Mailtext_anonym = f"{existing.Mailtext_anonym}{separator}{mail.Mailtext_anonym}"
+		if mail.mailtext_anonym:
+			if existing.mailtext_anonym:
+				existing.mailtext_anonym = f"{existing.mailtext_anonym}{separator}{mail.mailtext_anonym}"
 			else:
-				existing.Mailtext_anonym = mail.Mailtext_anonym
-		if mail.Mailtext:
-			if existing.Mailtext:
-				existing.Mailtext = f"{existing.Mailtext}{separator}{mail.Mailtext}"
+				existing.mailtext_anonym = mail.mailtext_anonym
+		if mail.mailtext:
+			if existing.mailtext:
+				existing.mailtext = f"{existing.mailtext}{separator}{mail.mailtext}"
 			else:
-				existing.Mailtext = mail.Mailtext
+				existing.mailtext = mail.mailtext
 
 	combined_list = list(combined.values())
 	for new_id, mail in enumerate(combined_list, start=1):
-		mail.Mail_ID = new_id
+		mail.mail_id = new_id
 
 	return combined_list
 

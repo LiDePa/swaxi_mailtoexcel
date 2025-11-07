@@ -2,7 +2,6 @@
 
 import os
 import asyncio
-import copy
 from typing import Any, Dict, Iterable, List, Mapping
 
 from dotenv import load_dotenv
@@ -32,11 +31,12 @@ class OutputJSON(BaseModel):
   kommentar: str
 
 
-_DEFAULT_OUTPUT = OutputJSON(
-  ist_schichtwunsch=False,
-  schichtwuensche=schichtwuensche(),
-  kommentar="",
-).model_dump()
+def _default_output() -> Dict[str, Any]:
+  return OutputJSON(
+    ist_schichtwunsch=True,
+    schichtwuensche=schichtwuensche(),
+    kommentar="",
+  ).model_dump()
 
 
 def _get_value(mail_item: Any, key: str, default: Any = None) -> Any:
@@ -294,7 +294,7 @@ def build_instructions(available_shifts):
   </example>"""
 	
   return f"""
-Du erzeugst genau eine JSON im Schema "OutputJSON" anhand der Liste <verfügbare_Schichten> und eines anonymisierten Mailtexts.
+Du erzeugst genau eine JSON im Schema "OutputJSON" anhand der Liste <verfügbare_Schichten> und eines anonymisierten mailtexts.
 
 # Kurzüberblick
 * Bestimme, ob die Mail ein Schichtwunsch ist. Wenn nein: setze ist_schichtwunsch = False und lasse 'schichtwuensche' sowie 'kommentar' leer.
@@ -307,11 +307,11 @@ Du erzeugst genau eine JSON im Schema "OutputJSON" anhand der Liste <verfügbare
 * „oder“ innerhalb desselben Tages: Liste die Schichten ohne Klammern (z. B. Mittwoch: entweder D.41 oder D.60 => ["D.41","D.60"]).
 * „und“ trennt unabhängige Wünsche.
 * Wenn alle Schichten eines Tages akzeptabel sind dann setze '"EGAL"'.
-* 'kommentar': Alle sonstigen für die Vergabe relevanten Angaben (z. B. Kann weniger/mehr Stunden machen als normalerweise, Priorisierungen zwischen gewünschten Schichten). In 'kommentar' lieber zu viel als zu wenig reinschreiben. Du entscheidest, welche Informationen für die Schichtvergabe relevant sind.
+* 'kommentar': Alle zusätzlichen für die Vergabe relevanten Angaben (z. B. Kann weniger/mehr Stunden machen als normalerweise, Priorisierungen zwischen gewünschten Schichten). 
 
 # Schwierige Fälle / Sonderregeln
 * Wenn ist_schichtwunsch = True, aber sich keine verlässlichen Wünsche extrahieren lassen, dann belasse 'schichtwuensche' und 'kommentar' leer — das kennzeichnet den Fall zur manuellen Prüfung.
-* Falls nur eine gewünschte Schicht genannt wird, die nicht in <verfügbare_Schichten> steht, gilt dasselbe (leere Felder).
+* Falls eine gewünschte Schicht genannt wird, die nicht in <verfügbare_Schichten> steht, übernimm diese Schicht nicht und erwähne den Fall im Kommentar.
 
 # verfügbare_Schichten
 <verfügbare_Schichten>{available_shifts}</verfügbare_Schichten>
@@ -324,62 +324,37 @@ Du erzeugst genau eine JSON im Schema "OutputJSON" anhand der Liste <verfügbare
 async def process_mail_anonym(instructions: str, mail_item: Any) -> Dict[str, Any]:
   """Run a single anonymised mail through the LLM and return the parsed response."""
 
-  prompt = _get_value(mail_item, "Mailtext_anonym", "") or ""
-  mail_id = _get_value(mail_item, "mail_id") or _get_value(mail_item, "mail_id")
+  prompt = _get_value(mail_item, "mailtext_anonym", "") or ""
+  mail_id = _get_value(mail_item, "mail_id")
 
+  response = await client.responses.parse(
+    model="gpt-5-2025-08-07",
+    input=[
+      {"role": "developer", "content": instructions},
+      {"role": "user", "content": prompt},
+    ],
+    text_format=OutputJSON,
+  )
+
+  output_text = getattr(response, "output_text", None)
+  import json
   try:
-    response = await client.responses.parse(
-      model="gpt-5-2025-08-07",
-      input=[
-        {"role": "developer", "content": instructions},
-        {"role": "user", "content": prompt},
-      ],
-      text_format=OutputJSON,
-    )
-    parsed = getattr(response, "parsed", None)
-    if isinstance(parsed, list):
-      parsed = parsed[0] if parsed else None
-    data = parsed.model_dump() if parsed else copy.deepcopy(_DEFAULT_OUTPUT)
+    data = json.loads(output_text) if output_text else _default_output()
   except Exception:
-    data = copy.deepcopy(_DEFAULT_OUTPUT)
+    data = _default_output()
 
-  schichtwuensche = copy.deepcopy(data.get("schichtwuensche", {}))
-  kommentar = data.get("kommentar", "")
-  ist_schichtwunsch = data.get("ist_schichtwunsch", False)
-
-  result = {
-    "mail_id": mail_id,
-    "ist_schichtwunsch": ist_schichtwunsch,
-    "schichtwuensche": schichtwuensche,
-    "kommentar": kommentar,
-    "Kommentar": kommentar,
-  }
+  result = {"mail_id": mail_id, **data}
 
   if isinstance(mail_item, dict):
     mail_item.update(result)
   else:
-    if mail_id is not None and hasattr(mail_item, "mail_id"):
-      mail_item.mail_id = mail_id
-    if hasattr(mail_item, "schichtwuensche"):
-      mail_item.schichtwuensche = schichtwuensche
-    if hasattr(mail_item, "Kommentar"):
-      mail_item.Kommentar = kommentar
-    if hasattr(mail_item, "ist_schichtwunsch"):
-      mail_item.ist_schichtwunsch = ist_schichtwunsch
-    if hasattr(mail_item, "ist_schichtwunsch"):
-      mail_item.ist_schichtwunsch = ist_schichtwunsch
+    for key, value in result.items():
+      if hasattr(mail_item, key):
+        setattr(mail_item, key, value)
 
-  return {"mail_id": mail_id, **data}
+  return result
 
 # Parallele Verarbeitung einer Liste von MailJSON-Objekten
 async def process_mails_parallel(instructions: str, mails: Iterable[Any]):
   tasks = [process_mail_anonym(instructions, mail) for mail in mails]
   return await asyncio.gather(*tasks)
-
-# Beispiel für die Nutzung:
-# from mail import MailJSON
-# mails = [MailJSON(...), ...]
-# results = asyncio.run(process_mails_parallel(instructions, mails))
-# for result in results:
-#     # result['mail_id'], result['schichtwuensche'], result['kommentar']
-#     # -> Dem passenden MailJSON-Objekt zuweisen

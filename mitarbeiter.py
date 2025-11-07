@@ -22,7 +22,7 @@ def get_resource_path(filename):
 		return os.path.join(sys._MEIPASS, filename)
 	return os.path.join(os.path.dirname(os.path.abspath(__file__)), filename)
 
-# Mitarbeiterdaten laden und fehlende Kurznamen ergänzen
+# Mitarbeiterdaten laden und fehlende kurznamen ergänzen
 def lade_mitarbeiter():
 	MITARBEITER_DATEI = "Mitarbeiter.xlsx"
 	MITARBEITER_PATH = get_resource_path(MITARBEITER_DATEI)
@@ -37,12 +37,12 @@ def lade_mitarbeiter():
 		vorname = row[1].value      # Spalte B: "Vorname"
 		nachname = row[2].value     # Spalte C: "Nachname"
 		mailadressen = row[5].value # Spalte F: "E-Mail Privat"
-		kurzname = row[10].value    # Spalte K: "Kurzname"
+		kurzname = row[10].value    # Spalte K: "kurzname"
 		# Validierung
 		if not fahrernummer or (not vorname and not nachname):
 			print(f"Fehlerhafte Zeile: Fahrernummer oder Name fehlt. Ignoriert: {vorname} {nachname}")
 			continue
-		# Kurzname generieren falls leer
+		# kurzname generieren falls leer
 		if not kurzname:
 			kurzname = generiere_kurzname(vorname, nachname)
 			row[10].value = kurzname
@@ -51,7 +51,7 @@ def lade_mitarbeiter():
 	wb.save(MITARBEITER_PATH)
 	return mitarbeiter_liste
 
-# Kurzname generieren
+# kurzname generieren
 def generiere_kurzname(vorname, nachname):
 	vornamen = str(vorname).split()
 	nachnamen = str(nachname).split()
@@ -107,7 +107,7 @@ def anonymisiere_mailtexte(mailjson_liste, mitarbeiter_liste):
     # 1. Mitarbeiter-Namen-Pattern erstellen
     mitarbeiter_pattern = erstelle_mitarbeiter_pattern(mitarbeiter_liste)
     
-    # 2. Pattern für Mailadressen (@ enthalten)
+    # 2. Pattern für mailadressen (@ enthalten)
     mail_adresse_pattern = r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}"
     
     # Pattern für die Zeile, ab der der Text gekürzt werden soll
@@ -117,9 +117,9 @@ def anonymisiere_mailtexte(mailjson_liste, mitarbeiter_liste):
     zeilenumbruch_pattern = re.compile(r"(\r\n|\n|\r){2,}")
 
     for mail in mailjson_liste:
-        mail_text_bearbeitet = mail.Mailtext
+        mail_text_bearbeitet = mail.mailtext
         
-        # NEU: A. Mailtext kürzen: Zeilen ab "Swaxi Dispo" oder "swaxi-dispo@sw-augsburg.de" entfernen (PRIORISIERT)
+        # NEU: A. mailtext kürzen: Zeilen ab "Swaxi Dispo" oder "swaxi-dispo@sw-augsburg.de" entfernen (PRIORISIERT)
         match = kuerzungs_pattern.search(mail_text_bearbeitet)
         if match:
             # Kürze den Text bis zum Beginn der gefundenen Zeile
@@ -133,9 +133,9 @@ def anonymisiere_mailtexte(mailjson_liste, mitarbeiter_liste):
         # C. Mitarbeiter-Namen anonymisieren
         mail_text_bearbeitet = mitarbeiter_pattern.sub("Anon", mail_text_bearbeitet)
         
-        # D. Mailadressen anonymisieren
+        # D. mailadressen anonymisieren
         mail_text_bearbeitet = re.sub(mail_adresse_pattern, "mailadress_anon", mail_text_bearbeitet, flags=re.IGNORECASE)
 
-        mail.Mailtext_anonym = mail_text_bearbeitet.strip()
+        mail.mailtext_anonym = mail_text_bearbeitet.strip()
 
     return mailjson_liste

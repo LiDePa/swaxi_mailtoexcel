@@ -1,4 +1,7 @@
+soll einfach in kommentar schreiben wenn eine schicht gewünscht wurde die nicht angeboten wurde
+
 sicherstellen dass verfügbare_schichten nicht leer ist, mit fehermeldung usw
+enter = weiter?
 
 remove consecutive /n in verfügbare_schichten & in examples
 

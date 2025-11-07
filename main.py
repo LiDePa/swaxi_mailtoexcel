@@ -24,10 +24,10 @@ if __name__ == "__main__":
             asyncio.run(process_mails_parallel(instructions, mails))
     print(available_shifts)
     for mail in mails:
-        print(f"Mailtext anonymisiert:\n{mail.Mailtext_anonym}\n")
-        print(f"Schichtwunsch erkannt: {mail.ist_Schichtwunsch}")
-        print(f"Schichtwuensche: {mail.Schichtwuensche}")
-        print(f"Kommentar: {mail.Kommentar}\n{'-'*40}\n")
+        print(f"mailtext anonymisiert:\n{mail.mailtext_anonym}\n")
+        print(f"Schichtwunsch erkannt: {mail.ist_schichtwunsch}")
+        print(f"schichtwuensche: {mail.schichtwuensche}")
+        print(f"kommentar: {mail.kommentar}\n{'-'*40}\n")
 
         
 
