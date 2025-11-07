@@ -1,4 +1,4 @@
-Beispiel mit Kommentar gg
+sicherstellen dass verfügbare_schichten nicht leer ist, mit fehermeldung usw
 
 remove consecutive /n in verfügbare_schichten & in examples
 

@@ -17,7 +17,7 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 client = AsyncOpenAI(api_key=OPENAI_API_KEY)
 
 
-class Schichtwuensche(BaseModel):
+class schichtwuensche(BaseModel):
     Mittwoch: List[str] = Field(default_factory=list)
     Donnerstag: List[str] = Field(default_factory=list)
     Freitag: List[str] = Field(default_factory=list)
@@ -28,13 +28,13 @@ class Schichtwuensche(BaseModel):
 
 class OutputJSON(BaseModel):
   ist_schichtwunsch: bool
-  schichtwuensche: Schichtwuensche
+  schichtwuensche: schichtwuensche
   kommentar: str
 
 
 _DEFAULT_OUTPUT = OutputJSON(
   ist_schichtwunsch=False,
-  schichtwuensche=Schichtwuensche(),
+  schichtwuensche=schichtwuensche(),
   kommentar="",
 ).model_dump()
 
@@ -325,7 +325,7 @@ async def process_mail_anonym(instructions: str, mail_item: Any) -> Dict[str, An
   """Run a single anonymised mail through the LLM and return the parsed response."""
 
   prompt = _get_value(mail_item, "Mailtext_anonym", "") or ""
-  mail_id = _get_value(mail_item, "Mail_ID") or _get_value(mail_item, "mail_id")
+  mail_id = _get_value(mail_item, "mail_id") or _get_value(mail_item, "mail_id")
 
   try:
     response = await client.responses.parse(
@@ -348,12 +348,9 @@ async def process_mail_anonym(instructions: str, mail_item: Any) -> Dict[str, An
   ist_schichtwunsch = data.get("ist_schichtwunsch", False)
 
   result = {
-    "Mail_ID": mail_id,
     "mail_id": mail_id,
     "ist_schichtwunsch": ist_schichtwunsch,
-    "ist_Schichtwunsch": ist_schichtwunsch,
     "schichtwuensche": schichtwuensche,
-    "Schichtwuensche": schichtwuensche,
     "kommentar": kommentar,
     "Kommentar": kommentar,
   }
@@ -361,14 +358,14 @@ async def process_mail_anonym(instructions: str, mail_item: Any) -> Dict[str, An
   if isinstance(mail_item, dict):
     mail_item.update(result)
   else:
-    if mail_id is not None and hasattr(mail_item, "Mail_ID"):
-      mail_item.Mail_ID = mail_id
-    if hasattr(mail_item, "Schichtwuensche"):
-      mail_item.Schichtwuensche = schichtwuensche
+    if mail_id is not None and hasattr(mail_item, "mail_id"):
+      mail_item.mail_id = mail_id
+    if hasattr(mail_item, "schichtwuensche"):
+      mail_item.schichtwuensche = schichtwuensche
     if hasattr(mail_item, "Kommentar"):
       mail_item.Kommentar = kommentar
-    if hasattr(mail_item, "ist_Schichtwunsch"):
-      mail_item.ist_Schichtwunsch = ist_schichtwunsch
+    if hasattr(mail_item, "ist_schichtwunsch"):
+      mail_item.ist_schichtwunsch = ist_schichtwunsch
     if hasattr(mail_item, "ist_schichtwunsch"):
       mail_item.ist_schichtwunsch = ist_schichtwunsch
 
