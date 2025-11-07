@@ -23,6 +23,8 @@ Dazu zwei Matrizen halten: Eine welche die spätere excel tabelle abbildet und e
 
 fehlermeldung wenn excel tabelle geöffnet, outlook nicht geöffnet, etc
 
+requirements ordentlich machen und neues environment erstellen für pyinstaller
+
 evals (prompting)
 
 

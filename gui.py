@@ -1,164 +1,185 @@
+"""Browser-based GUI for collecting date range and shift information."""
+from __future__ import annotations
 
-
-import tkinter as tk
-from tkinter import ttk, messagebox
+import threading
+import time
+import webbrowser
+from dataclasses import dataclass
 from datetime import datetime
-try:
-	from tkcalendar import DateEntry
-except ImportError:
-	DateEntry = None  # Fallback, falls tkcalendar nicht installiert ist
+from typing import Dict, Optional, Tuple
 
-class ZeitraumDialog:
+from flask import Flask, current_app, render_template, request
+from werkzeug.serving import make_server
 
-	def __init__(self, master):
-		self.master = master
-		master.title("Zeitraum auswählen")
+app = Flask(__name__, template_folder="templates", static_folder="static")
 
-
-		now = datetime.now()
-		now_str = now.strftime("%Y-%m-%d %H:%M")
+_DEFAULT_HOST = "127.0.0.1"
+_DEFAULT_PORT = 5000
 
 
-
-		# Startdatum: Kalender und Uhr
-		tk.Label(master, text="Startdatum").grid(row=0, column=0, sticky="w")
-		if DateEntry:
-			self.start_date = DateEntry(master, date_pattern="yyyy-mm-dd")
-		else:
-			self.start_date = tk.Entry(master)
-			self.start_date.insert(0, now.strftime("%Y-%m-%d"))
-		self.start_date.grid(row=0, column=1)
-
-		spin_font = ("Arial", 14)  # gleiche Schrift wie Stunde/Minute
-
-		# Stunde und Minute Spinboxen (größer anzeigen)
-		tk.Label(master, text="Stunde").grid(row=0, column=2)
-		self.start_hour = tk.Spinbox(master, from_=0, to=23, width=3, format="%02.0f", font=spin_font)
-		self.start_hour.grid(row=0, column=3)
-		self.start_hour.delete(0, tk.END)
-		self.start_hour.insert(0, now.strftime("%H"))
-
-		tk.Label(master, text=":").grid(row=0, column=4)
-		tk.Label(master, text="Minute").grid(row=0, column=5)
-		self.start_minute = tk.Spinbox(master, from_=0, to=59, width=3, format="%02.0f", font=spin_font)
-		self.start_minute.grid(row=0, column=6)
-		self.start_minute.delete(0, tk.END)
-		self.start_minute.insert(0, "00")
-
-		# Kalenderwoche (KW) Label und Spinbox (editierbar, gleiche Größe wie Stunde/Minute)
-		tk.Label(master, text="Kalenderwoche").grid(row=0, column=7, sticky="w", padx=(10,0))
-		self.kw_var = tk.StringVar()
-		# Initial KW berechnen: nächste KW
-		kw = now.isocalendar()[1] + 1
-		if kw > 52:
-			kw = 1
-		self.kw_var.set(str(kw))
-		self.kw_spinbox = tk.Spinbox(master, from_=1, to=53, width=3, format="%02.0f", font=spin_font, textvariable=self.kw_var, wrap=True)
-		self.kw_spinbox.grid(row=0, column=8)
-
-		# Stunde und Minute Spinboxen (größer anzeigen)
-		spin_font = ("Arial", 14)  # größere Schrift für bessere Sichtbarkeit
-		tk.Label(master, text="Stunde").grid(row=0, column=2)
-		self.start_hour = tk.Spinbox(master, from_=0, to=23, width=3, format="%02.0f", font=spin_font)
-		self.start_hour.grid(row=0, column=3)
-		self.start_hour.delete(0, tk.END)
-		self.start_hour.insert(0, now.strftime("%H"))
-
-		tk.Label(master, text=":").grid(row=0, column=4)
-		tk.Label(master, text="Minute").grid(row=0, column=5)
-		self.start_minute = tk.Spinbox(master, from_=0, to=59, width=3, format="%02.0f", font=spin_font)
-		self.start_minute.grid(row=0, column=6)
-		self.start_minute.delete(0, tk.END)
-		self.start_minute.insert(0, "00")
+@dataclass
+class _FormState:
+    result_event: threading.Event
+    result: Optional[Tuple[datetime, datetime, str, int]] = None
+    server_thread: Optional["_ServerThread"] = None
 
 
+class _ServerThread(threading.Thread):
+    """Runs the Flask development server in a background thread."""
 
-		# Enddatum: Kalender und Uhr
-		tk.Label(master, text="Enddatum").grid(row=1, column=0, sticky="w")
-		if DateEntry:
-			self.end_date = DateEntry(master, date_pattern="yyyy-mm-dd")
-		else:
-			self.end_date = tk.Entry(master)
-			self.end_date.insert(0, now.strftime("%Y-%m-%d"))
-		self.end_date.grid(row=1, column=1)
+    def __init__(self, flask_app: Flask, host: str, port: int) -> None:
+        super().__init__(daemon=True)
+        self._app = flask_app
+        self._host = host
+        self._port = port
+        self._server = make_server(host, port, flask_app)
 
-		tk.Label(master, text="Stunde").grid(row=1, column=2)
-		self.end_hour = tk.Spinbox(master, from_=0, to=23, width=3, format="%02.0f", font=spin_font)
-		self.end_hour.grid(row=1, column=3)
-		self.end_hour.delete(0, tk.END)
-		self.end_hour.insert(0, now.strftime("%H"))
+    def run(self) -> None:
+        ctx = self._app.app_context()
+        ctx.push()
+        try:
+            self._server.serve_forever()
+        finally:
+            ctx.pop()
 
-		tk.Label(master, text=":").grid(row=1, column=4)
-		tk.Label(master, text="Minute").grid(row=1, column=5)
-		self.end_minute = tk.Spinbox(master, from_=0, to=59, width=3, format="%02.0f", font=spin_font)
-		self.end_minute.grid(row=1, column=6)
-		self.end_minute.delete(0, tk.END)
-		self.end_minute.insert(0, now.strftime("%M"))
-
-		# Workaround für tkcalendar.DateEntry Overlay-Bug:
-		if DateEntry:
-			def _init_dateentry_overlay():
-				# Enddatum-DateEntry einmal kurz öffnen und schließen
-				self.end_date.event_generate('<Button-1>')
-				self.master.after(100, lambda: self.master.focus())
-			self.master.after(200, _init_dateentry_overlay)
+    def shutdown(self) -> None:
+        self._server.shutdown()
 
 
+def _get_form_state() -> _FormState:
+    state = current_app.config.get("FORM_STATE")
+    if state is None:
+        raise RuntimeError("FORM_STATE is not configured.")
+    return state
 
-		# Textfeld für verfügbare Schichten (800 Pixel Standardhöhe, resizable)
-		tk.Label(master, text="Verfügbare Schichten (aus eigener Mail kopieren):").grid(row=3, column=0, columnspan=9, sticky="w", pady=(10,0))
-		self.schichten_text = tk.Text(master, height=1, width=80, wrap="word")
-		self.schichten_text.grid(row=4, column=0, columnspan=9, sticky="nsew")
-		# Setze die Höhe auf 800 Pixel
-		self.schichten_text.update_idletasks()
-		self.schichten_text.config(height=1)
-		self.schichten_text.config(height=int(800/self.schichten_text.winfo_fpixels('1c')))
-		# Fenstergröße anpassen und resizable machen
-		master.minsize(800, 600)
-		master.resizable(True, True)
-		master.grid_rowconfigure(4, weight=1)
-		master.grid_columnconfigure(8, weight=1)
 
-		self.button = tk.Button(master, text="Weiter", command=self.on_submit)
-		self.button.grid(row=5, column=0, columnspan=9, pady=(10,0))
+def _default_form_values() -> Dict[str, str]:
+    now = datetime.now()
+    kw = now.isocalendar()[1] + 1
+    if kw > 53:
+        kw = 1
+    return {
+        "start_date": now.strftime("%Y-%m-%d"),
+        "start_hour": now.strftime("%H"),
+        "start_minute": "00",
+        "end_date": now.strftime("%Y-%m-%d"),
+        "end_hour": now.strftime("%H"),
+        "end_minute": now.strftime("%M"),
+        "kalenderwoche": f"{kw:02d}",
+        "schichten_text": "",
+    }
 
-		self.result = None
 
-		# Setze Fokus auf Startdatum (Datum oder Stunde)
-		self.start_date.focus_set()
+def _gather_form_values(form_data) -> Dict[str, str]:
+    return {
+        "start_date": (form_data.get("start_date") or "").strip(),
+        "start_hour": (form_data.get("start_hour") or "").strip(),
+        "start_minute": (form_data.get("start_minute") or "").strip(),
+        "end_date": (form_data.get("end_date") or "").strip(),
+        "end_hour": (form_data.get("end_hour") or "").strip(),
+        "end_minute": (form_data.get("end_minute") or "").strip(),
+        "kalenderwoche": (form_data.get("kalenderwoche") or "").strip(),
+        "schichten_text": (form_data.get("schichten_text") or "").strip(),
+    }
 
-	def on_submit(self):
-		try:
-			# Startdatum zusammensetzen
-			if DateEntry:
-				start_date_obj = self.start_date.get_date()
-				start_date_str = start_date_obj.strftime("%Y-%m-%d")
-				end_date_str = self.end_date.get_date().strftime("%Y-%m-%d")
-			else:
-				start_date_str = self.start_date.get()
-				start_date_obj = datetime.strptime(start_date_str, "%Y-%m-%d")
-				end_date_str = self.end_date.get()
-			start_hour = self.start_hour.get()
-			start_minute = self.start_minute.get()
-			end_hour = self.end_hour.get()
-			end_minute = self.end_minute.get()
-			start_str = f"{start_date_str} {start_hour}:{start_minute}"
-			end_str = f"{end_date_str} {end_hour}:{end_minute}"
-			start = datetime.strptime(start_str, "%Y-%m-%d %H:%M")
-			end = datetime.strptime(end_str, "%Y-%m-%d %H:%M")
-			schichten = self.schichten_text.get("1.0", "end-1c")
-			# KW aus Spinbox übernehmen
-			try:
-				kw = int(self.kw_var.get())
-			except Exception:
-				kw = start_date_obj.isocalendar()[1]
-			self.result = (start, end, schichten, kw)
-			self.master.quit()
-		except Exception as e:
-			messagebox.showerror("Fehler", f"Ungültiges Datum: {e}")
 
-def zeitraum_abfragen():
-	root = tk.Tk()
-	dialog = ZeitraumDialog(root)
-	root.mainloop()
-	return dialog.result
+def _build_datetime(date_str: str, hour_str: str, minute_str: str) -> datetime:
+    if not date_str:
+        raise ValueError("Bitte ein Datum auswaehlen.")
+    if not hour_str or not minute_str:
+        raise ValueError("Bitte Stunde und Minute angeben.")
+    try:
+        hour = int(hour_str)
+        minute = int(minute_str)
+    except ValueError as exc:
+        raise ValueError("Stunde und Minute muessen Zahlen sein.") from exc
+    if not 0 <= hour <= 23:
+        raise ValueError("Stunde muss zwischen 0 und 23 liegen.")
+    if not 0 <= minute <= 59:
+        raise ValueError("Minute muss zwischen 0 und 59 liegen.")
+    try:
+        return datetime.strptime(f"{date_str} {hour:02d}:{minute:02d}", "%Y-%m-%d %H:%M")
+    except ValueError as exc:
+        raise ValueError("Ungueltige Datums- oder Zeitangabe.") from exc
+
+
+def _parse_kw(value: str) -> int:
+    if not value:
+        raise ValueError("Bitte eine Kalenderwoche angeben.")
+    try:
+        kw = int(value)
+    except ValueError as exc:
+        raise ValueError("Kalenderwoche muss eine Zahl sein.") from exc
+    if not 1 <= kw <= 53:
+        raise ValueError("Kalenderwoche muss zwischen 1 und 53 liegen.")
+    return kw
+
+
+def _trigger_server_shutdown(state: _FormState) -> None:
+    server = state.server_thread
+    if not server:
+        return
+
+    def _delayed_shutdown() -> None:
+        time.sleep(1)
+        server.shutdown()
+
+    threading.Thread(target=_delayed_shutdown, daemon=True).start()
+
+
+@app.route("/", methods=["GET"])
+def show_form():
+    values = _default_form_values()
+    return render_template("index.html", values=values, error=None, success=False)
+
+
+@app.route("/submit", methods=["POST"])
+def submit_form():
+    state = _get_form_state()
+    values = _gather_form_values(request.form)
+    try:
+        start = _build_datetime(values["start_date"], values["start_hour"], values["start_minute"])
+        end = _build_datetime(values["end_date"], values["end_hour"], values["end_minute"])
+        if end < start:
+            raise ValueError("Enddatum darf nicht vor dem Startdatum liegen.")
+        kw = _parse_kw(values["kalenderwoche"])
+    except ValueError as exc:
+        return (
+            render_template("index.html", values=values, error=str(exc), success=False),
+            400,
+        )
+
+    state.result = (start, end, values["schichten_text"], kw)
+    state.result_event.set()
+    _trigger_server_shutdown(state)
+    return render_template(
+        "index.html",
+        values=values,
+        error=None,
+        success=True,
+    )
+
+
+def zeitraum_abfragen(host: str = _DEFAULT_HOST, port: int = _DEFAULT_PORT):
+    """Start the browser UI, wait for user input, and return the collected data."""
+    state = _FormState(result_event=threading.Event())
+    app.config["FORM_STATE"] = state
+
+    server_thread = _ServerThread(app, host, port)
+    state.server_thread = server_thread
+    server_thread.start()
+
+    url = f"http://{host}:{port}/"
+    try:
+        webbrowser.open_new(url)
+    except Exception:
+        pass
+
+    state.result_event.wait()
+
+    if server_thread.is_alive():
+        server_thread.shutdown()
+    server_thread.join(timeout=5)
+
+    app.config.pop("FORM_STATE", None)
+    return state.result

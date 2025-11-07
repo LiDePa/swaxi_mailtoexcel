@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="utf-8">
+    <title>Zeitraum auswaehlen</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <main class="container">
+    <h1>Zeitraum auswaehlen</h1>
+        {% if error %}
+        <div class="message error">{{ error }}</div>
+        {% elif success %}
+    <div class="message success">Daten wurden uebernommen. Dieses Fenster kann geschlossen werden.</div>
+        {% endif %}
+
+        <form method="post" action="{{ url_for('submit_form') }}">
+            <section class="field-group">
+                <h2>Start</h2>
+                <label for="start_date">Datum</label>
+                <input type="date" id="start_date" name="start_date" value="{{ values.start_date }}" required autofocus>
+                <div class="time-row">
+                    <label for="start_hour">Stunde</label>
+                    <input type="number" id="start_hour" name="start_hour" min="0" max="23" value="{{ values.start_hour }}" required>
+                    <span class="separator">:</span>
+                    <label for="start_minute">Minute</label>
+                    <input type="number" id="start_minute" name="start_minute" min="0" max="59" value="{{ values.start_minute }}" required>
+                </div>
+            </section>
+
+            <section class="field-group">
+                <h2>Ende</h2>
+                <label for="end_date">Datum</label>
+                <input type="date" id="end_date" name="end_date" value="{{ values.end_date }}" required>
+                <div class="time-row">
+                    <label for="end_hour">Stunde</label>
+                    <input type="number" id="end_hour" name="end_hour" min="0" max="23" value="{{ values.end_hour }}" required>
+                    <span class="separator">:</span>
+                    <label for="end_minute">Minute</label>
+                    <input type="number" id="end_minute" name="end_minute" min="0" max="59" value="{{ values.end_minute }}" required>
+                </div>
+            </section>
+
+            <section class="field-group">
+                <h2>Kalenderwoche</h2>
+                <label for="kalenderwoche">KW</label>
+                <input type="number" id="kalenderwoche" name="kalenderwoche" min="1" max="53" value="{{ values.kalenderwoche }}" required>
+            </section>
+
+            <section class="field-group">
+                <h2>Verfuegbare Schichten</h2>
+                <label for="schichten_text">Schichten (aus eigener Mail kopieren)</label>
+                <textarea id="schichten_text" name="schichten_text" rows="12" placeholder="Verfuegbare Schichten hier einfuegen...">{{ values.schichten_text }}</textarea>
+            </section>
+
+            <div class="actions">
+                {% if success %}
+                <button type="submit" disabled>Gesendet</button>
+                {% else %}
+                <button type="submit">Weiter</button>
+                {% endif %}
+            </div>
+        </form>
+    </main>
+</body>
+</html>
