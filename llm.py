@@ -297,7 +297,7 @@ def build_instructions(available_shifts):
 Du erzeugst genau eine JSON im Schema "OutputJSON" anhand der Liste <verfügbare_Schichten> und eines anonymisierten mailtexts.
 
 # Kurzüberblick
-* Bestimme, ob die Mail ein Schichtwunsch ist. Wenn nein: setze ist_schichtwunsch = False und lasse 'schichtwuensche' sowie 'kommentar' leer.
+* Bestimme, ob die Mail ein Schichtwunsch ist. Wenn nein: setze ist_schichtwunsch = False und lasse 'schichtwuensche' sowie 'kommentar' leer. Tu das selbe wenn die Mail keinen Text beinhält.
 * Falls unklar: entscheide zugunsten ist_schichtwunsch = True.
 * Mehrere zusammengefügte Mails desselben Mitarbeiters werden als ein Text behandelt. Neuere Nachrichten sind weiter unten und wichtiger als vorherige Nachrichten.
 

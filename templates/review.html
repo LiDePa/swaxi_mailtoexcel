@@ -9,6 +9,17 @@
     <main class="container">
         <h1>Mailuebersicht</h1>
 
+        <section class="field-group">
+            <p><strong>Zeitraum:</strong> {{ timeframe }}</p>
+            <p><strong>Kalenderwoche:</strong> {{ kalenderwoche or "--" }}</p>
+        </section>
+
+        {% if error %}
+            <div class="message error">{{ error }}</div>
+        {% elif status %}
+            <div class="message {{ status_level or 'info' }}">{{ status }}</div>
+        {% endif %}
+
         {% set unknown_count = unknown_mails | length %}
         {% set known_count = known_mails | length %}
 
@@ -67,12 +78,8 @@
         {% endif %}
 
         <form method="post" action="{{ url_for('review_continue') }}" class="actions">
-            <button type="submit" {% if processing_started %}disabled{% endif %}>Verarbeitung starten</button>
+            <button type="submit">Verarbeitung starten</button>
         </form>
-
-        {% if processing_started %}
-            <div class="message success">Die Verarbeitung wurde gestartet. Dieses Fenster kann geschlossen werden.</div>
-        {% endif %}
     </main>
     <script>
         document.addEventListener('DOMContentLoaded', function () {

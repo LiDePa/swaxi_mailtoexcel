@@ -1,69 +1,51 @@
-"""Browser-based GUI for collecting date range and shift information."""
+"""Flask web application for handling the Swaxi mail workflow."""
 from __future__ import annotations
 
-import threading
-import time
-import webbrowser
+import asyncio
+import os
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional
 
-from flask import Flask, current_app, redirect, render_template, request, url_for, has_app_context
-from werkzeug.serving import make_server
+from flask import Flask, redirect, render_template, request, url_for
+
+from llm import build_instructions, process_mails_parallel
+from mail import MailJSON, lade_mails_aus_outlook, kuerze_mailtexte, weise_kurznamen_zu
+from mitarbeiter import Mitarbeiter, anonymisiere_mailtexte, lade_mitarbeiter
 
 app = Flask(__name__, template_folder="templates", static_folder="static")
-
-_DEFAULT_HOST = "127.0.0.1"
-_DEFAULT_PORT = 5000
+app.config["SECRET_KEY"] = os.environ.get("FLASK_SECRET_KEY", "dev-secret-key")
 
 
 @dataclass
-class _FormState:
-    result_event: threading.Event
-    result: Optional[Tuple[datetime, datetime, str, int]] = None
-    server_thread: Optional["_ServerThread"] = None
-    review_event: threading.Event = field(default_factory=threading.Event)
-    review_data: Optional[Dict[str, List[Dict[str, str]]]] = None
-    continue_event: threading.Event = field(default_factory=threading.Event)
-    processing_started: bool = False
+class WorkflowState:
+    start: Optional[datetime] = None
+    end: Optional[datetime] = None
+    kalenderwoche: Optional[int] = None
+    available_shifts: str = ""
+    mitarbeiter: List[Mitarbeiter] = field(default_factory=list)
+    mails_all: List[MailJSON] = field(default_factory=list)
+    mails_results: List[MailJSON] = field(default_factory=list)
 
 
-class _ServerThread(threading.Thread):
-    """Runs the Flask development server in a background thread."""
-
-    def __init__(self, flask_app: Flask, host: str, port: int) -> None:
-        super().__init__(daemon=True)
-        self._app = flask_app
-        self._host = host
-        self._port = port
-        self._server = make_server(host, port, flask_app)
-
-    def run(self) -> None:
-        ctx = self._app.app_context()
-        ctx.push()
-        try:
-            self._server.serve_forever()
-        finally:
-            ctx.pop()
-
-    def shutdown(self) -> None:
-        self._server.shutdown()
+_STATE = WorkflowState()
 
 
-def _get_form_state() -> _FormState:
-    config = current_app.config if has_app_context() else app.config
-    state = config.get("FORM_STATE")
-    if state is None:
-        raise RuntimeError("FORM_STATE is not configured.")
-    return state
+def _reset_state() -> None:
+    global _STATE
+    _STATE = WorkflowState()
 
 
-def _default_form_values() -> Dict[str, str]:
+def _get_state() -> WorkflowState:
+    return _STATE
+
+
+def _default_form_values(state: Optional[WorkflowState] = None) -> Dict[str, str]:
     now = datetime.now()
     kw = now.isocalendar()[1] + 1
     if kw > 53:
         kw = 1
-    return {
+    values = {
         "start_date": now.strftime("%Y-%m-%d"),
         "start_hour": now.strftime("%H"),
         "start_minute": "00",
@@ -73,6 +55,21 @@ def _default_form_values() -> Dict[str, str]:
         "kalenderwoche": f"{kw:02d}",
         "schichten_text": "",
     }
+    if not state:
+        return values
+    if state.start:
+        values["start_date"] = state.start.strftime("%Y-%m-%d")
+        values["start_hour"] = state.start.strftime("%H")
+        values["start_minute"] = state.start.strftime("%M")
+    if state.end:
+        values["end_date"] = state.end.strftime("%Y-%m-%d")
+        values["end_hour"] = state.end.strftime("%H")
+        values["end_minute"] = state.end.strftime("%M")
+    if state.kalenderwoche:
+        values["kalenderwoche"] = f"{state.kalenderwoche:02d}"
+    if state.available_shifts:
+        values["schichten_text"] = state.available_shifts
+    return values
 
 
 def _gather_form_values(form_data) -> Dict[str, str]:
@@ -120,27 +117,62 @@ def _parse_kw(value: str) -> int:
     return kw
 
 
-def _trigger_server_shutdown(state: _FormState) -> None:
-    server = state.server_thread
-    if not server:
-        return
+def _format_datetime(dt: Optional[datetime]) -> str:
+    if not dt:
+        return "--"
+    return dt.strftime("%d.%m.%Y %H:%M")
 
-    def _delayed_shutdown() -> None:
-        time.sleep(1)
-        server.shutdown()
 
-    threading.Thread(target=_delayed_shutdown, daemon=True).start()
+def _format_review_lists(mails: List[MailJSON]) -> Dict[str, List[Dict[str, str]]]:
+    def _format_entry(mail: MailJSON) -> Dict[str, str]:
+        received = mail.empfangen or datetime.min
+        received_label = mail.empfangen.strftime("%d.%m.%Y %H:%M") if mail.empfangen else "Kein Datum"
+        return {
+            "mailadresse": str(mail.mailadresse or "").strip(),
+            "betreff": str(mail.betreff or ""),
+            "mailtext": str(mail.mailtext or ""),
+            "empfangen_display": received_label,
+            "kurzname": str(getattr(mail, "kurzname", "") or ""),
+            "mail_id": mail.mail_id,
+            "sort_key": received,
+        }
+
+    formatted = [_format_entry(mail) for mail in mails]
+    formatted.sort(key=lambda item: (item["sort_key"], item["mail_id"]), reverse=True)
+    unknown = [item for item in formatted if not item["kurzname"].strip()]
+    known = [item for item in formatted if item["kurzname"].strip()]
+    for item in formatted:
+        item.pop("sort_key", None)
+    return {"unknown": unknown, "known": known}
+
+
+def _render_review(state: WorkflowState, error: Optional[str] = None, status: Optional[str] = None, status_level: str = "info"):
+    lists = _format_review_lists(state.mails_all)
+    return render_template(
+        "review.html",
+        unknown_mails=lists["unknown"],
+        known_mails=lists["known"],
+        error=error,
+        status=status,
+        status_level=status_level,
+        timeframe=f"{_format_datetime(state.start)} – {_format_datetime(state.end)}",
+        kalenderwoche=state.kalenderwoche,
+    )
 
 
 @app.route("/", methods=["GET"])
 def show_form():
-    values = _default_form_values()
+    state = _get_state()
+    if request.args.get("reset") == "1":
+        _reset_state()
+        state = _get_state()
+    values = _default_form_values(state)
     return render_template("index.html", values=values, error=None, success=False)
 
 
 @app.route("/submit", methods=["POST"])
 def submit_form():
-    state = _get_form_state()
+    state = _get_state()
     values = _gather_form_values(request.form)
     try:
         start = _build_datetime(values["start_date"], values["start_hour"], values["start_minute"])
@@ -149,109 +181,89 @@ def submit_form():
             raise ValueError("Enddatum darf nicht vor dem Startdatum liegen.")
         kw = _parse_kw(values["kalenderwoche"])
     except ValueError as exc:
+        return render_template("index.html", values=values, error=str(exc), success=False), 400
+
+    state.start = start
+    state.end = end
+    state.kalenderwoche = kw
+    state.available_shifts = values["schichten_text"]
+    state.mails_results.clear()
+
+    try:
+        mitarbeiter = lade_mitarbeiter()
+        mails_all = lade_mails_aus_outlook(start, end)
+        mails_all = kuerze_mailtexte(mails_all)
+        mails_all = weise_kurznamen_zu(mails_all, mitarbeiter)
+    except Exception as exc:  # noqa: BLE001 - want to surface full error for manual handling
+        app.logger.exception("Fehler bei der Mailverarbeitung")
         return (
-            render_template("index.html", values=values, error=str(exc), success=False),
-            400,
+            render_template(
+                "index.html",
+                values=values,
+                error=f"Fehler beim Einlesen der Mails: {exc}",
+                success=False,
+            ),
+            500,
         )
 
-    state.processing_started = False
-    state.review_data = None
-    state.review_event.clear()
-    state.continue_event.clear()
-    state.result = (start, end, values["schichten_text"], kw)
-    state.result_event.set()
+    state.mitarbeiter = mitarbeiter
+    state.mails_all = mails_all
+
     return redirect(url_for("review_mails"))
 
 
 @app.route("/review", methods=["GET"])
 def review_mails():
-    state = _get_form_state()
-    state.review_event.wait()
-    data = state.review_data or {"unknown": [], "known": []}
-    return render_template(
-        "review.html",
-        unknown_mails=data["unknown"],
-        known_mails=data["known"],
-        processing_started=state.processing_started,
-    )
+    state = _get_state()
+    if not state.mails_all:
+        return redirect(url_for("show_form"))
+    return _render_review(state)
 
 
 @app.route("/review/continue", methods=["POST"])
 def review_continue():
-    state = _get_form_state()
-    state.processing_started = True
-    state.continue_event.set()
-    data = state.review_data or {"unknown": [], "known": []}
-    return render_template(
-        "review.html",
-        unknown_mails=data["unknown"],
-        known_mails=data["known"],
-        processing_started=True,
-    )
+    state = _get_state()
+    if not state.mails_all:
+        return redirect(url_for("show_form"))
 
+    mails_processable = [mail for mail in state.mails_all if getattr(mail, "kurzname", "").strip()]
+    if not mails_processable:
+        return _render_review(state, error="Keine zu verarbeitenden Mails gefunden.")
 
-def zeitraum_abfragen(host: str = _DEFAULT_HOST, port: int = _DEFAULT_PORT):
-    """Start the browser UI, wait for user input, and return the collected data."""
-    state = _FormState(result_event=threading.Event())
-    app.config["FORM_STATE"] = state
-
-    server_thread = _ServerThread(app, host, port)
-    state.server_thread = server_thread
-    server_thread.start()
-
-    url = f"http://{host}:{port}/"
     try:
-        webbrowser.open_new(url)
-    except Exception:
-        pass
+        mails_processable = anonymisiere_mailtexte(mails_processable, state.mitarbeiter)
+        instructions = build_instructions(state.available_shifts)
+        asyncio.run(process_mails_parallel(instructions, mails_processable))
+        state.mails_results = list(mails_processable)
+    except Exception as exc:  # noqa: BLE001 - propagate meaningful failure message to the UI
+        app.logger.exception("Fehler in der Verarbeitung")
+        return _render_review(state, error=f"Verarbeitung fehlgeschlagen: {exc}")
 
-    state.result_event.wait()
-    return state.result
+    return redirect(url_for("show_results"))
 
 
-def zeige_mail_uebersicht(mails) -> None:
-    """Expose fetched mails in a review page and wait for user confirmation."""
-    state = _get_form_state()
-    state.review_event.clear()
-    state.continue_event.clear()
-    state.processing_started = False
+@app.route("/results", methods=["GET"])
+def show_results():
+    state = _get_state()
+    if not state.mails_results:
+        return redirect(url_for("review_mails"))
 
-    def _format_entry(mail) -> Dict[str, str]:
-        received = mail.empfangen or datetime.min
-        empfangen_display = (
-            received.strftime("%d.%m.%Y %H:%M") if mail.empfangen else "Kein Datum"
-        )
-        return {
-            "mailadresse": str(mail.mailadresse or "").strip(),
-            "betreff": str(mail.betreff or ""),
-            "mailtext": str(mail.mailtext or ""),
-            "empfangen_display": empfangen_display,
-        }
-
-    sorted_mails = sorted(
-        mails,
-        key=lambda mail: mail.empfangen or datetime.min,
+    results = sorted(
+        state.mails_results,
+        key=lambda mail: (mail.empfangen or datetime.min, mail.mail_id),
         reverse=True,
     )
 
-    unknown = [_format_entry(mail) for mail in sorted_mails if not (mail.kurzname or "").strip()]
-    known = [_format_entry(mail) for mail in sorted_mails if (mail.kurzname or "").strip()]
+    return render_template(
+        "results.html",
+        results=results,
+        timeframe=f"{_format_datetime(state.start)} – {_format_datetime(state.end)}",
+        kalenderwoche=state.kalenderwoche,
+        available_shifts=state.available_shifts,
+    )
 
-    state.review_data = {"unknown": unknown, "known": known}
-    state.review_event.set()
 
-    state.continue_event.wait()
-
-
-def stop_gui_server() -> None:
-    """Shutdown the background Flask server if it is still running."""
-    state = app.config.get("FORM_STATE")
-    if not state:
-        return
-
-    _trigger_server_shutdown(state)
-    server_thread = state.server_thread
-    if server_thread and server_thread.is_alive():
-        server_thread.join(timeout=5)
-
-    app.config.pop("FORM_STATE", None)
+@app.route("/reset", methods=["POST"])
+def reset_session():
+    _reset_state()
+    return redirect(url_for("show_form"))

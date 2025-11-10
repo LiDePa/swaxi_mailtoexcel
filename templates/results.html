@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="utf-8">
+    <title>Auswertung</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <main class="container">
+        <h1>Auswertung</h1>
+
+        <section class="field-group">
+            <p><strong>Zeitraum:</strong> {{ timeframe }}</p>
+            <p><strong>Kalenderwoche:</strong> {{ kalenderwoche or "--" }}</p>
+        </section>
+
+        {% if available_shifts %}
+        <section class="field-group">
+            <h2>Verfuegbare Schichten</h2>
+            <pre class="monospace-block">{{ available_shifts }}</pre>
+        </section>
+        {% endif %}
+
+        {% if results %}
+        <section class="field-group">
+            <h2>Ergebnisse</h2>
+            <ul class="mail-list">
+                {% for mail in results %}
+                <li class="mail-item">
+                    <article class="result-entry">
+                        <header class="mail-header">
+                            <div>
+                                <strong>{{ mail.kurzname or "Unbekannt" }}</strong>
+                                <span class="mail-address">{{ (mail.mailadresse or "(keine Adresse)") | e }}</span>
+                            </div>
+                            <div class="mail-date">Empfangen: {{ mail.empfangen.strftime('%d.%m.%Y %H:%M') if mail.empfangen else 'Kein Datum' }}</div>
+                        </header>
+
+                        <section class="field-group">
+                            <h3>Schichtwunsch</h3>
+                            <p><strong>ist_schichtwunsch:</strong> {{ 'Ja' if mail.ist_schichtwunsch else 'Nein' }}</p>
+                            <ul class="shift-list">
+                                {% for day, shifts in mail.schichtwuensche.items() %}
+                                <li><strong>{{ day }}:</strong> {% if shifts %}{{ shifts | join(', ') }}{% else %}-{% endif %}</li>
+                                {% endfor %}
+                            </ul>
+                            {% if mail.kommentar %}
+                            <p><strong>Kommentar:</strong> {{ mail.kommentar }}</p>
+                            {% endif %}
+                        </section>
+
+                        <section class="field-group">
+                            <h3>Anonymisierter Mailtext</h3>
+                            <p>{{ mail.mailtext_anonym | e | replace('\n', '<br>' | safe) }}</p>
+                        </section>
+                    </article>
+                </li>
+                {% endfor %}
+            </ul>
+        </section>
+        {% else %}
+        <section class="field-group">
+            <p class="empty-placeholder">Keine Ergebnisse vorhanden.</p>
+        </section>
+        {% endif %}
+
+        <div class="actions">
+            <a class="button" href="{{ url_for('review_mails') }}">Zurueck zur Uebersicht</a>
+            <form method="post" action="{{ url_for('reset_session') }}">
+                <button type="submit">Neue Anfrage</button>
+            </form>
+        </div>
+    </main>
+</body>
+</html>
