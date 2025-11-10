@@ -4,11 +4,11 @@ from __future__ import annotations
 import threading
 import time
 import webbrowser
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Dict, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
-from flask import Flask, current_app, render_template, request
+from flask import Flask, current_app, redirect, render_template, request, url_for, has_app_context
 from werkzeug.serving import make_server
 
 app = Flask(__name__, template_folder="templates", static_folder="static")
@@ -22,6 +22,10 @@ class _FormState:
     result_event: threading.Event
     result: Optional[Tuple[datetime, datetime, str, int]] = None
     server_thread: Optional["_ServerThread"] = None
+    review_event: threading.Event = field(default_factory=threading.Event)
+    review_data: Optional[Dict[str, List[Dict[str, str]]]] = None
+    continue_event: threading.Event = field(default_factory=threading.Event)
+    processing_started: bool = False
 
 
 class _ServerThread(threading.Thread):
@@ -47,7 +51,8 @@ class _ServerThread(threading.Thread):
 
 
 def _get_form_state() -> _FormState:
-    state = current_app.config.get("FORM_STATE")
+    config = current_app.config if has_app_context() else app.config
+    state = config.get("FORM_STATE")
     if state is None:
         raise RuntimeError("FORM_STATE is not configured.")
     return state
@@ -149,14 +154,39 @@ def submit_form():
             400,
         )
 
+    state.processing_started = False
+    state.review_data = None
+    state.review_event.clear()
+    state.continue_event.clear()
     state.result = (start, end, values["schichten_text"], kw)
     state.result_event.set()
-    _trigger_server_shutdown(state)
+    return redirect(url_for("review_mails"))
+
+
+@app.route("/review", methods=["GET"])
+def review_mails():
+    state = _get_form_state()
+    state.review_event.wait()
+    data = state.review_data or {"unknown": [], "known": []}
     return render_template(
-        "index.html",
-        values=values,
-        error=None,
-        success=True,
+        "review.html",
+        unknown_mails=data["unknown"],
+        known_mails=data["known"],
+        processing_started=state.processing_started,
+    )
+
+
+@app.route("/review/continue", methods=["POST"])
+def review_continue():
+    state = _get_form_state()
+    state.processing_started = True
+    state.continue_event.set()
+    data = state.review_data or {"unknown": [], "known": []}
+    return render_template(
+        "review.html",
+        unknown_mails=data["unknown"],
+        known_mails=data["known"],
+        processing_started=True,
     )
 
 
@@ -176,10 +206,52 @@ def zeitraum_abfragen(host: str = _DEFAULT_HOST, port: int = _DEFAULT_PORT):
         pass
 
     state.result_event.wait()
+    return state.result
 
-    if server_thread.is_alive():
-        server_thread.shutdown()
-    server_thread.join(timeout=5)
+
+def zeige_mail_uebersicht(mails) -> None:
+    """Expose fetched mails in a review page and wait for user confirmation."""
+    state = _get_form_state()
+    state.review_event.clear()
+    state.continue_event.clear()
+    state.processing_started = False
+
+    def _format_entry(mail) -> Dict[str, str]:
+        received = mail.empfangen or datetime.min
+        empfangen_display = (
+            received.strftime("%d.%m.%Y %H:%M") if mail.empfangen else "Kein Datum"
+        )
+        return {
+            "mailadresse": str(mail.mailadresse or "").strip(),
+            "betreff": str(mail.betreff or ""),
+            "mailtext": str(mail.mailtext or ""),
+            "empfangen_display": empfangen_display,
+        }
+
+    sorted_mails = sorted(
+        mails,
+        key=lambda mail: mail.empfangen or datetime.min,
+        reverse=True,
+    )
+
+    unknown = [_format_entry(mail) for mail in sorted_mails if not (mail.kurzname or "").strip()]
+    known = [_format_entry(mail) for mail in sorted_mails if (mail.kurzname or "").strip()]
+
+    state.review_data = {"unknown": unknown, "known": known}
+    state.review_event.set()
+
+    state.continue_event.wait()
+
+
+def stop_gui_server() -> None:
+    """Shutdown the background Flask server if it is still running."""
+    state = app.config.get("FORM_STATE")
+    if not state:
+        return
+
+    _trigger_server_shutdown(state)
+    server_thread = state.server_thread
+    if server_thread and server_thread.is_alive():
+        server_thread.join(timeout=5)
 
     app.config.pop("FORM_STATE", None)
-    return state.result

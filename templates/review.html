@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="utf-8">
+    <title>Mailuebersicht</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <main class="container">
+        <h1>Mailuebersicht</h1>
+
+        {% set unknown_count = unknown_mails | length %}
+        {% set known_count = known_mails | length %}
+
+        {% if unknown_count == 0 and known_count == 0 %}
+            <section class="field-group">
+                <p class="empty-placeholder">Keine Mails im ausgewaehlten Zeitraum gefunden.</p>
+            </section>
+        {% else %}
+            <section class="field-group">
+                <h2>Mails von unbekannten Adressen (werden nicht verarbeitet)</h2>
+                {% if unknown_count %}
+                    <ul class="mail-list">
+                        {% for mail in unknown_mails %}
+                            <li class="mail-item">
+                                <button type="button" class="mail-toggle">
+                                    <div class="mail-header">
+                                        <span class="mail-address">{{ (mail.mailadresse or "(keine Adresse)") | e }}</span>
+                                        <span class="mail-date">{{ mail.empfangen_display | e }}</span>
+                                    </div>
+                                    <div class="mail-subject">{{ (mail.betreff or "(kein Betreff)") | e }}</div>
+                                </button>
+                                <div class="mail-body" hidden>
+                                    <p>{{ mail.mailtext | e | replace('\n', '<br>') | safe }}</p>
+                                </div>
+                            </li>
+                        {% endfor %}
+                    </ul>
+                {% else %}
+                    <p class="empty-placeholder">Keine unbekannten Absender.</p>
+                {% endif %}
+            </section>
+
+            <section class="field-group">
+                <h2>Zu verarbeitende Mails</h2>
+                {% if known_count %}
+                    <ul class="mail-list">
+                        {% for mail in known_mails %}
+                            <li class="mail-item">
+                                <button type="button" class="mail-toggle">
+                                    <div class="mail-header">
+                                        <span class="mail-address">{{ (mail.mailadresse or "(keine Adresse)") | e }}</span>
+                                        <span class="mail-date">{{ mail.empfangen_display | e }}</span>
+                                    </div>
+                                    <div class="mail-subject">{{ (mail.betreff or "(kein Betreff)") | e }}</div>
+                                </button>
+                                <div class="mail-body" hidden>
+                                    <p>{{ mail.mailtext | e | replace('\n', '<br>') | safe }}</p>
+                                </div>
+                            </li>
+                        {% endfor %}
+                    </ul>
+                {% else %}
+                    <p class="empty-placeholder">Keine zu verarbeitenden Mails.</p>
+                {% endif %}
+            </section>
+        {% endif %}
+
+        <form method="post" action="{{ url_for('review_continue') }}" class="actions">
+            <button type="submit" {% if processing_started %}disabled{% endif %}>Verarbeitung starten</button>
+        </form>
+
+        {% if processing_started %}
+            <div class="message success">Die Verarbeitung wurde gestartet. Dieses Fenster kann geschlossen werden.</div>
+        {% endif %}
+    </main>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            document.querySelectorAll('.mail-toggle').forEach(function (button) {
+                button.addEventListener('click', function () {
+                    var body = button.nextElementSibling;
+                    var isHidden = body.hasAttribute('hidden');
+                    if (isHidden) {
+                        body.removeAttribute('hidden');
+                    } else {
+                        body.setAttribute('hidden', '');
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+</html>

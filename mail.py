@@ -145,8 +145,8 @@ def weise_kurznamen_zu(mailjson_liste, mitarbeiter_liste):
 	separator = "\n---\n"
 
 	for _, mail in indexed_sorted_mails:
-		# Verwende kurzname als Schlüssel, falle auf mailadresse zurück, falls kein Match.
-		key = mail.kurzname or str(mail.mailadresse).strip().lower()
+		# Verwende IMMER die Mailadresse als Schlüssel (lowercased, stripped)
+		key = str(mail.mailadresse).strip().lower()
 		if key not in combined:
 			combined[key] = mail
 			continue

@@ -1,12 +1,13 @@
 soll einfach in kommentar schreiben wenn eine schicht gewünscht wurde die nicht angeboten wurde
 
+kurzname nicht als unique identifier! (noch nicht gepushed, könnte wieder verloren gehen)
+
 sicherstellen dass verfügbare_schichten nicht leer ist, mit fehermeldung usw
 enter = weiter?
 
 remove consecutive /n in verfügbare_schichten & in examples
 
-gui -> flask web based
-
+mails ohne kurznamen löschen!
 mails von adressen die nicht in mitarbeiter.xlsx vorkommen flaggen, in gui anzeigen und nur behandeln wenn explizit vom nutzer gewünscht und anonymisierung sichergestellt (oder darauf hinweisen dass mail nicht behandelt werden kann)
 
 @AlicanThomas: was wenn sich ein Mitarbeiter für alles verfügbar meldet? alle schichten eintragen oder in den Kommentar?
