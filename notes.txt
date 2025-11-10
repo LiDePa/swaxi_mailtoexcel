@@ -1,34 +1,26 @@
-anonymisierung splitten und zunächst nur mail kürzen, dann review dann anonymisieren
-
 sicherstellen dass verfügbare_schichten nicht leer ist, mit fehermeldung usw
 enter = weiter?
 
 remove consecutive /n in verfügbare_schichten & in examples
 
-mails ohne kurznamen löschen!
-mails von adressen die nicht in mitarbeiter.xlsx vorkommen flaggen, in gui anzeigen und nur behandeln wenn explizit vom nutzer gewünscht und anonymisierung sichergestellt (oder darauf hinweisen dass mail nicht behandelt werden kann)
+checken ob unbekannte mailadressen in oberer liste auftauchen und auch wirklich keinen kurznamen erhalten
+Möglichkeit bieten, kurznamen hinzuzufügen wenn mail von unbekannter adresse -> programm soll sie dann auch der excel hinzufügen
+checken ob mails ohne kurzname vor lllm call wirklich gelöscht werden
 
 @AlicanThomas: was wenn sich ein Mitarbeiter für alles verfügbar meldet? alle schichten eintragen oder in den Kommentar?
 
 statt konkretem schichtwunsch auch entweder EGAL oder "4h ab 14 uhr" oder sowas erkennen und eintragen
 
-bei erstellung von tabelle gucken ob Schlüssel in dict Wochentag beinhält zB "Montag"
-
 vor Eintrag in excel tabelle, zwei listen aller schwierigen Mails zeigen, eine mit allen die einen Schichtwunsch enthalten und eine weitere liste mit allen mails ohne schichtwunsch
-von LLM confidence value zurückgeben lassen und die gelisteten Mails entsprechend sortieren. 
-
 bei "in excel eintragen" tabelle vorher in gui zeigen und welche mail zu welchen eintragungen/kommentaren geführt hat. (wenn man in der liste auf die mail klickt, werden die entsprechenden eintragungen in der tabelle farblich hervorgehoben)
 Dazu zwei Matrizen halten: Eine welche die spätere excel tabelle abbildet und eine welche bei an jeder Position die id der entsprechenden Mail hält, sodass die Mail die zum EIntrag geführt hat, leicht zugeordnet werden kann.
+von LLM confidence value zurückgeben lassen und die gelisteten Mails entsprechend sortieren?
 
 fehlermeldung wenn excel tabelle geöffnet, outlook nicht geöffnet, etc
 
 requirements ordentlich machen und neues environment erstellen für pyinstaller
 
-evals (prompting)
-
-
-
-
+evals (prompting)?
 
 
 

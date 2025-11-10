@@ -31,7 +31,7 @@
                                     <div class="mail-subject">{{ (mail.betreff or "(kein Betreff)") | e }}</div>
                                 </button>
                                 <div class="mail-body" hidden>
-                                    <p>{{ mail.mailtext | e | replace('\n', '<br>') | safe }}</p>
+                                    <p>{{ mail.mailtext | e | replace('\n', '<br>' | safe) }}</p>
                                 </div>
                             </li>
                         {% endfor %}
@@ -55,7 +55,7 @@
                                     <div class="mail-subject">{{ (mail.betreff or "(kein Betreff)") | e }}</div>
                                 </button>
                                 <div class="mail-body" hidden>
-                                    <p>{{ mail.mailtext | e | replace('\n', '<br>') | safe }}</p>
+                                    <p>{{ mail.mailtext | e | replace('\n', '<br>' | safe) }}</p>
                                 </div>
                             </li>
                         {% endfor %}

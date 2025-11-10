@@ -109,6 +109,9 @@ def anonymisiere_mailtexte(mailjson_liste, mitarbeiter_liste):
     # 2. Pattern für mailadressen (@ enthalten)
     mail_adresse_pattern = r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}"
 
+	# Entferne alle Mails ohne kurzname
+    mailjson_liste = [mail for mail in mailjson_liste if getattr(mail, 'kurzname', None)]
+
     for mail in mailjson_liste:
         mail_text_bearbeitet = mail.mailtext or ""
 

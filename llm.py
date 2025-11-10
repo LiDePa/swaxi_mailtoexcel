@@ -307,7 +307,7 @@ Du erzeugst genau eine JSON im Schema "OutputJSON" anhand der Liste <verfügbare
 * „oder“ innerhalb desselben Tages: Liste die Schichten ohne Klammern (z. B. Mittwoch: entweder D.41 oder D.60 => ["D.41","D.60"]).
 * „und“ trennt unabhängige Wünsche.
 * Wenn alle Schichten eines Tages akzeptabel sind dann setze '"EGAL"'.
-* 'kommentar': Alle zusätzlichen für die Vergabe relevanten Angaben (z. B. Kann weniger/mehr Stunden machen als normalerweise, Priorisierungen zwischen gewünschten Schichten). 
+* 'kommentar': Stichpunktartig und möglichst knapp alle zusätzlichen für die Vergabe relevanten Angaben (z. B. Kann weniger/mehr Stunden machen als normalerweise, Priorisierungen zwischen gewünschten Schichten).
 
 # Schwierige Fälle / Sonderregeln
 * Wenn ist_schichtwunsch = True, aber sich keine verlässlichen Wünsche extrahieren lassen, dann belasse 'schichtwuensche' und 'kommentar' leer — das kennzeichnet den Fall zur manuellen Prüfung.

@@ -12,30 +12,30 @@ if __name__ == "__main__":
         zeitraum = zeitraum_abfragen()
         if not zeitraum:
             print("Kein Zeitraum auswaehlt. Programm beendet.")
-        else:
-            # Rueckgabe aus GUI
-            start, end, available_shifts, kalenderwoche = zeitraum
+            exit()
+        # Rückgabe aus index.html einlesen
+        start, end, available_shifts, kalenderwoche = zeitraum
 
-            # Mails einlesen und aufbereiten
-            mails = lade_mails_aus_outlook(start, end)
-            mails = kuerze_mailtexte(mails)
-            mails = weise_kurznamen_zu(mails, mitarbeiter)
+        # Mails einlesen und aufbereiten
+        mails = lade_mails_aus_outlook(start, end)
+        mails = kuerze_mailtexte(mails)
+        mails = weise_kurznamen_zu(mails, mitarbeiter)
 
-            zeige_mail_uebersicht(mails)
+        # review.html
+        zeige_mail_uebersicht(mails)
 
-            mails = anonymisiere_mailtexte(mails, mitarbeiter)
+        # Mails anonymisieren, prompt erstellen und alles an LLM senden
+        mails = anonymisiere_mailtexte(mails, mitarbeiter)
+        instructions = build_instructions(available_shifts)
+        if mails:
+            asyncio.run(process_mails_parallel(instructions, mails))
 
-            # Prompt erstellen und mails an LLM uebergeben
-            instructions = build_instructions(available_shifts)
-            if mails:
-                asyncio.run(process_mails_parallel(instructions, mails))
-
-            print(available_shifts)
-            for mail in mails:
-                print(f"mailtext anonymisiert:\n{mail.mailtext_anonym}\n")
-                print(f"Schichtwunsch erkannt: {mail.ist_schichtwunsch}")
-                print(f"schichtwuensche: {mail.schichtwuensche}")
-                print(f"kommentar: {mail.kommentar}\n{'-'*40}\n")
+        print(available_shifts)
+        for mail in mails:
+            print(f"mailtext anonymisiert:\n{mail.mailtext_anonym}\n")
+            print(f"Schichtwunsch erkannt: {mail.ist_schichtwunsch}")
+            print(f"schichtwuensche: {mail.schichtwuensche}")
+            print(f"kommentar: {mail.kommentar}\n{'-'*40}\n")
     finally:
         stop_gui_server()
 
