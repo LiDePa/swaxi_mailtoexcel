@@ -1,3 +1,4 @@
+import re
 import win32com.client
 from collections import OrderedDict
 from datetime import datetime
@@ -100,6 +101,31 @@ def lade_mails_aus_outlook(startdatum, enddatum):
 
 	print(f"{len(mails)} Mails im Zeitraum gefunden.")
 	return mails
+
+
+def kuerze_mailtexte(mailjson_liste):
+	"""Entfernt Footer-Anteile und uebermaessige Leerzeilen aus allen Mailtexten."""
+	if not mailjson_liste:
+		return mailjson_liste
+
+	kuerzungs_pattern = re.compile(r"^(.*(?:Swaxi Dispo|swaxi-dispo@sw-augsburg\.de).*)$", flags=re.MULTILINE | re.IGNORECASE)
+	zeilenumbruch_pattern = re.compile(r"(\r\n|\n|\r){2,}")
+
+	for mail in mailjson_liste:
+		mail_text_bearbeitet = mail.mailtext or ""
+
+		match = kuerzungs_pattern.search(mail_text_bearbeitet)
+		if match:
+			mail_text_bearbeitet = mail_text_bearbeitet[:match.start()]
+
+		mail_text_bearbeitet = "\n".join(
+			line for line in mail_text_bearbeitet.splitlines() if "https://" not in line
+		)
+
+		mail_text_bearbeitet = zeilenumbruch_pattern.sub("\n", mail_text_bearbeitet)
+		mail.mailtext = mail_text_bearbeitet.strip()
+
+	return mailjson_liste
 
 
 # Neue Funktion: Weise jedem MailJSON-Objekt den kurzname des passenden Mitarbeiters zu

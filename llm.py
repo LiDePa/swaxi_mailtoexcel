@@ -299,7 +299,7 @@ Du erzeugst genau eine JSON im Schema "OutputJSON" anhand der Liste <verfügbare
 # Kurzüberblick
 * Bestimme, ob die Mail ein Schichtwunsch ist. Wenn nein: setze ist_schichtwunsch = False und lasse 'schichtwuensche' sowie 'kommentar' leer.
 * Falls unklar: entscheide zugunsten ist_schichtwunsch = True.
-* Mehrere zusammengefügte Mails desselben Mitarbeiters werden als ein Text behandelt. Neuere Nachrichten sind weiter unten und überschreiben vorherige Nachrichten.
+* Mehrere zusammengefügte Mails desselben Mitarbeiters werden als ein Text behandelt. Neuere Nachrichten sind weiter unten und wichtiger als vorherige Nachrichten.
 
 # Extraktionsregeln
 * Normalisiere Schicht-IDs ins Format 'D.41' (kein Leerzeichen).

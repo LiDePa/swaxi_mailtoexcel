@@ -1,6 +1,4 @@
-soll einfach in kommentar schreiben wenn eine schicht gewünscht wurde die nicht angeboten wurde
-
-kurzname nicht als unique identifier! (noch nicht gepushed, könnte wieder verloren gehen)
+anonymisierung splitten und zunächst nur mail kürzen, dann review dann anonymisieren
 
 sicherstellen dass verfügbare_schichten nicht leer ist, mit fehermeldung usw
 enter = weiter?

@@ -101,39 +101,21 @@ def erstelle_mitarbeiter_pattern(mitarbeiter_liste):
 
 def anonymisiere_mailtexte(mailjson_liste, mitarbeiter_liste):
     """
-    Replace all employee names, remove mail footers, and anonymize all email addresses.
-    Footer removal is prioritized for efficiency.
+	Replace all employee names and anonymize all email addresses in the mailtext.
     """
     # 1. Mitarbeiter-Namen-Pattern erstellen
     mitarbeiter_pattern = erstelle_mitarbeiter_pattern(mitarbeiter_liste)
     
     # 2. Pattern für mailadressen (@ enthalten)
     mail_adresse_pattern = r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}"
-    
-    # Pattern für die Zeile, ab der der Text gekürzt werden soll
-    kuerzungs_pattern = re.compile(r"^(.*(?:Swaxi Dispo|swaxi-dispo@sw-augsburg\.de).*)$", flags=re.MULTILINE | re.IGNORECASE)
-
-    # Pattern für die Reduzierung mehrfacher Zeilenumbrüche
-    zeilenumbruch_pattern = re.compile(r"(\r\n|\n|\r){2,}")
 
     for mail in mailjson_liste:
-        mail_text_bearbeitet = mail.mailtext
-        
-        # NEU: A. mailtext kürzen: Zeilen ab "Swaxi Dispo" oder "swaxi-dispo@sw-augsburg.de" entfernen (PRIORISIERT)
-        match = kuerzungs_pattern.search(mail_text_bearbeitet)
-        if match:
-            # Kürze den Text bis zum Beginn der gefundenen Zeile
-            mail_text_bearbeitet = mail_text_bearbeitet[:match.start()]
-        # Entferne alle Zeilen, die eine URL mit 'https://' enthalten
-        mail_text_bearbeitet = '\n'.join([line for line in mail_text_bearbeitet.splitlines() if 'https://' not in line])
-            
-        # B. Mehrere Zeilenumbrüche auf ein einzelnes \n reduzieren
-        mail_text_bearbeitet = zeilenumbruch_pattern.sub("\n", mail_text_bearbeitet)
-        
-        # C. Mitarbeiter-Namen anonymisieren
+        mail_text_bearbeitet = mail.mailtext or ""
+
+        # Mitarbeiter-Namen anonymisieren
         mail_text_bearbeitet = mitarbeiter_pattern.sub("Anon", mail_text_bearbeitet)
-        
-        # D. mailadressen anonymisieren
+
+        # mailadressen anonymisieren
         mail_text_bearbeitet = re.sub(mail_adresse_pattern, "mailadress_anon", mail_text_bearbeitet, flags=re.IGNORECASE)
 
         mail.mailtext_anonym = mail_text_bearbeitet.strip()

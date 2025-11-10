@@ -1,6 +1,6 @@
 import asyncio
 
-from mail import lade_mails_aus_outlook, weise_kurznamen_zu
+from mail import lade_mails_aus_outlook, kuerze_mailtexte, weise_kurznamen_zu
 from mitarbeiter import lade_mitarbeiter, anonymisiere_mailtexte
 from gui import stop_gui_server, zeige_mail_uebersicht, zeitraum_abfragen
 from llm import build_instructions, process_mails_parallel
@@ -18,10 +18,12 @@ if __name__ == "__main__":
 
             # Mails einlesen und aufbereiten
             mails = lade_mails_aus_outlook(start, end)
-            mails = anonymisiere_mailtexte(mails, mitarbeiter)
+            mails = kuerze_mailtexte(mails)
             mails = weise_kurznamen_zu(mails, mitarbeiter)
 
             zeige_mail_uebersicht(mails)
+
+            mails = anonymisiere_mailtexte(mails, mitarbeiter)
 
             # Prompt erstellen und mails an LLM uebergeben
             instructions = build_instructions(available_shifts)
