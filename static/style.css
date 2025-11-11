@@ -241,3 +241,94 @@ button:disabled {
 .shift-list li + li {
     margin-top: 6px;
 }
+
+.results-layout {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+.results-column {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+.results-left {
+    flex: 1 1 auto;
+}
+
+.results-right {
+    flex: 1 1 auto;
+}
+
+@media (min-width: 1024px) {
+    .results-layout {
+        flex-direction: row;
+        align-items: flex-start;
+    }
+
+    .results-left {
+        flex: 1 1 45%;
+    }
+
+    .results-right {
+        flex: 1 1 55%;
+    }
+}
+
+.table-wrapper {
+    overflow-x: auto;
+}
+
+.shift-table {
+    width: 100%;
+    border-collapse: collapse;
+    background-color: #ffffff;
+    border: 1px solid #d2d6dc;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.shift-table thead {
+    background-color: #f1f5f9;
+}
+
+.shift-table th,
+.shift-table td {
+    border: 1px solid #e5e7eb;
+    padding: 10px 12px;
+    text-align: left;
+    vertical-align: top;
+    font-size: 14px;
+}
+
+.shift-table th {
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 13px;
+    color: #334155;
+}
+
+.shift-table td {
+    min-width: 120px;
+    background-color: #ffffff;
+}
+
+.shift-table td.has-entry {
+    color: #1f2933;
+}
+
+.shift-table td.is-highlighted {
+    background-color: #fef3c7;
+    font-weight: 600;
+}
+
+.shift-table tr.has-highlighted-cell td {
+    box-shadow: inset 0 0 0 1px #f59e0b;
+}
+
+.mail-toggle.is-active-mail {
+    border-color: #f59e0b;
+    background-color: #fff7ed;
+}

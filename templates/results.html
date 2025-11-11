@@ -8,61 +8,111 @@
 <body>
     <main class="container">
         <h1>Auswertung</h1>
+        <div class="results-layout">
+            <section class="results-column results-left">
+                <section class="field-group">
+                    <h2>Verarbeitete Mails</h2>
+                    {% if processed_mails %}
+                        <ul class="mail-list">
+                            {% for mail in processed_mails %}
+                                <li class="mail-item">
+                                    <button type="button" class="mail-toggle" data-mail-highlight="{{ mail.mail_id }}">
+                                        <div class="mail-header">
+                                            <span class="mail-address">{{ (mail.mailadresse or "(keine Adresse)") | e }}</span>
+                                            <span class="mail-date">{{ mail.empfangen_display | e }}</span>
+                                        </div>
+                                        <div class="mail-subject">{{ (mail.betreff or "(kein Betreff)") | e }}</div>
+                                    </button>
+                                    <div class="mail-body" hidden>
+                                        <p>{{ mail.mailtext | e | replace('\n', '<br>' | safe) }}</p>
+                                    </div>
+                                </li>
+                            {% endfor %}
+                        </ul>
+                    {% else %}
+                        <p class="empty-placeholder">Keine verarbeiteten Mails vorhanden.</p>
+                    {% endif %}
+                </section>
 
-        <section class="field-group">
-            <p><strong>Zeitraum:</strong> {{ timeframe }}</p>
-            <p><strong>Kalenderwoche:</strong> {{ kalenderwoche or "--" }}</p>
-        </section>
+                <section class="field-group">
+                    <h2>Als Schichtwunsch erkannt aber nicht verarbeitet</h2>
+                    {% if recognized_not_processed_mails %}
+                        <ul class="mail-list">
+                            {% for mail in recognized_not_processed_mails %}
+                                <li class="mail-item">
+                                    <button type="button" class="mail-toggle">
+                                        <div class="mail-header">
+                                            <span class="mail-address">{{ (mail.mailadresse or "(keine Adresse)") | e }}</span>
+                                            <span class="mail-date">{{ mail.empfangen_display | e }}</span>
+                                        </div>
+                                        <div class="mail-subject">{{ (mail.betreff or "(kein Betreff)") | e }}</div>
+                                    </button>
+                                    <div class="mail-body" hidden>
+                                        <p>{{ mail.mailtext | e | replace('\n', '<br>' | safe) }}</p>
+                                    </div>
+                                </li>
+                            {% endfor %}
+                        </ul>
+                    {% else %}
+                        <p class="empty-placeholder">Keine passenden Mails vorhanden.</p>
+                    {% endif %}
+                </section>
 
-        {% if available_shifts %}
-        <section class="field-group">
-            <h2>Verfuegbare Schichten</h2>
-            <pre class="monospace-block">{{ available_shifts }}</pre>
-        </section>
-        {% endif %}
+                <section class="field-group">
+                    <h2>Kein Schichtwunsch</h2>
+                    {% if non_shift_mails %}
+                        <ul class="mail-list">
+                            {% for mail in non_shift_mails %}
+                                <li class="mail-item">
+                                    <button type="button" class="mail-toggle">
+                                        <div class="mail-header">
+                                            <span class="mail-address">{{ (mail.mailadresse or "(keine Adresse)") | e }}</span>
+                                            <span class="mail-date">{{ mail.empfangen_display | e }}</span>
+                                        </div>
+                                        <div class="mail-subject">{{ (mail.betreff or "(kein Betreff)") | e }}</div>
+                                    </button>
+                                    <div class="mail-body" hidden>
+                                        <p>{{ mail.mailtext | e | replace('\n', '<br>' | safe) }}</p>
+                                    </div>
+                                </li>
+                            {% endfor %}
+                        </ul>
+                    {% else %}
+                        <p class="empty-placeholder">Keine Mails vorhanden.</p>
+                    {% endif %}
+                </section>
+            </section>
 
-        {% if results %}
-        <section class="field-group">
-            <h2>Ergebnisse</h2>
-            <ul class="mail-list">
-                {% for mail in results %}
-                <li class="mail-item">
-                    <article class="result-entry">
-                        <header class="mail-header">
-                            <div>
-                                <strong>{{ mail.kurzname or "Unbekannt" }}</strong>
-                                <span class="mail-address">{{ (mail.mailadresse or "(keine Adresse)") | e }}</span>
-                            </div>
-                            <div class="mail-date">Empfangen: {{ mail.empfangen.strftime('%d.%m.%Y %H:%M') if mail.empfangen else 'Kein Datum' }}</div>
-                        </header>
-
-                        <section class="field-group">
-                            <h3>Schichtwunsch</h3>
-                            <p><strong>ist_schichtwunsch:</strong> {{ 'Ja' if mail.ist_schichtwunsch else 'Nein' }}</p>
-                            <ul class="shift-list">
-                                {% for day, shifts in mail.schichtwuensche.items() %}
-                                <li><strong>{{ day }}:</strong> {% if shifts %}{{ shifts | join(', ') }}{% else %}-{% endif %}</li>
-                                {% endfor %}
-                            </ul>
-                            {% if mail.kommentar %}
-                            <p><strong>Kommentar:</strong> {{ mail.kommentar }}</p>
-                            {% endif %}
-                        </section>
-
-                        <section class="field-group">
-                            <h3>Anonymisierter Mailtext</h3>
-                            <p>{{ mail.mailtext_anonym | e | replace('\n', '<br>' | safe) }}</p>
-                        </section>
-                    </article>
-                </li>
-                {% endfor %}
-            </ul>
-        </section>
-        {% else %}
-        <section class="field-group">
-            <p class="empty-placeholder">Keine Ergebnisse vorhanden.</p>
-        </section>
-        {% endif %}
+            <section class="results-column results-right">
+                <section class="field-group">
+                    <h2>Schichttabelle</h2>
+                    {% if has_shift_entries %}
+                        <div class="table-wrapper">
+                            <table class="shift-table">
+                                <thead>
+                                    <tr>
+                                        {% for header in shifts_headers %}
+                                            <th>{{ header }}</th>
+                                        {% endfor %}
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for row in shifts_rows %}
+                                        <tr>
+                                            {% for cell in row %}
+                                                <td data-mail-id="{{ cell.mail_id }}" class="{% if cell.value %}has-entry{% endif %}">{{ cell.value }}</td>
+                                            {% endfor %}
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <p class="empty-placeholder">Keine Schichtwuensche vorhanden.</p>
+                    {% endif %}
+                </section>
+            </section>
+        </div>
 
         <div class="actions">
             <a class="button" href="{{ url_for('review_mails') }}">Zurueck zur Uebersicht</a>
@@ -71,5 +121,80 @@
             </form>
         </div>
     </main>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            var highlightButtons = document.querySelectorAll('[data-mail-highlight]');
+            var otherButtons = document.querySelectorAll('.mail-toggle:not([data-mail-highlight])');
+            var tableCells = Array.from(document.querySelectorAll('[data-mail-id]'));
+            var tableRows = Array.from(document.querySelectorAll('.shift-table tbody tr'));
+            var activeHighlightButton = null;
+
+            function clearHighlight() {
+                tableCells.forEach(function (cell) {
+                    cell.classList.remove('is-highlighted');
+                });
+                tableRows.forEach(function (row) {
+                    row.classList.remove('has-highlighted-cell');
+                });
+            }
+
+            function applyHighlight(mailId) {
+                clearHighlight();
+                if (!mailId) {
+                    return;
+                }
+                tableCells.forEach(function (cell) {
+                    if (cell.dataset.mailId === mailId && cell.dataset.mailId !== '') {
+                        cell.classList.add('is-highlighted');
+                        var row = cell.closest('tr');
+                        if (row) {
+                            row.classList.add('has-highlighted-cell');
+                        }
+                    }
+                });
+            }
+
+            highlightButtons.forEach(function (button) {
+                button.addEventListener('click', function () {
+                    var body = button.nextElementSibling;
+                    if (!body) {
+                        return;
+                    }
+                    var isHidden = body.hasAttribute('hidden');
+                    if (isHidden) {
+                        body.removeAttribute('hidden');
+                        if (activeHighlightButton && activeHighlightButton !== button) {
+                            activeHighlightButton.classList.remove('is-active-mail');
+                        }
+                        activeHighlightButton = button;
+                        button.classList.add('is-active-mail');
+                        applyHighlight(button.dataset.mailHighlight);
+                    } else {
+                        body.setAttribute('hidden', '');
+                        button.classList.remove('is-active-mail');
+                        if (activeHighlightButton === button) {
+                            activeHighlightButton = null;
+                            clearHighlight();
+                        }
+                    }
+                });
+            });
+
+            otherButtons.forEach(function (button) {
+                button.addEventListener('click', function () {
+                    var body = button.nextElementSibling;
+                    if (!body) {
+                        return;
+                    }
+                    var isHidden = body.hasAttribute('hidden');
+                    if (isHidden) {
+                        body.removeAttribute('hidden');
+                    } else {
+                        body.setAttribute('hidden', '');
+                    }
+                });
+            });
+        });
+    </script>
 </body>
 </html>

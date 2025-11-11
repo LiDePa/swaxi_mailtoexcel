@@ -1,8 +1,11 @@
+schicht in mail in klammern -> zweite prio -> kommentar
+
 sicherstellen dass verfügbare_schichten nicht leer ist, mit fehermeldung usw
 enter = weiter?
 
 remove consecutive /n in verfügbare_schichten & in examples
 
+mehrere mailadressen von selbem mitarbeiter ermöglichen (falls nicht bereits möglich)
 checken ob unbekannte mailadressen in oberer liste auftauchen und auch wirklich keinen kurznamen erhalten
 Möglichkeit bieten, kurznamen hinzuzufügen wenn mail von unbekannter adresse -> programm soll sie dann auch der excel hinzufügen
 checken ob mails ohne kurzname vor lllm call wirklich gelöscht werden
@@ -16,7 +19,7 @@ bei "in excel eintragen" tabelle vorher in gui zeigen und welche mail zu welchen
 Dazu zwei Matrizen halten: Eine welche die spätere excel tabelle abbildet und eine welche bei an jeder Position die id der entsprechenden Mail hält, sodass die Mail die zum EIntrag geführt hat, leicht zugeordnet werden kann.
 von LLM confidence value zurückgeben lassen und die gelisteten Mails entsprechend sortieren?
 
-fehlermeldung wenn excel tabelle geöffnet, outlook nicht geöffnet, etc
+fehlermeldung wenn excel tabelle geöffnet, outlook nicht geöffnet, 0 mails gefunden, etc
 
 requirements ordentlich machen und neues environment erstellen für pyinstaller
 

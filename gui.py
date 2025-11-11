@@ -5,6 +5,7 @@ import asyncio
 import os
 from dataclasses import dataclass, field
 from datetime import datetime
+from collections.abc import Iterable
 from typing import Dict, List, Optional
 
 from flask import Flask, redirect, render_template, request, url_for
@@ -12,6 +13,7 @@ from flask import Flask, redirect, render_template, request, url_for
 from llm import build_instructions, process_mails_parallel
 from mail import MailJSON, lade_mails_aus_outlook, kuerze_mailtexte, weise_kurznamen_zu
 from mitarbeiter import Mitarbeiter, anonymisiere_mailtexte, lade_mitarbeiter
+from shifts import erzeuge_schicht_tabellen
 
 app = Flask(__name__, template_folder="templates", static_folder="static")
 app.config["SECRET_KEY"] = os.environ.get("FLASK_SECRET_KEY", "dev-secret-key")
@@ -24,8 +26,7 @@ class WorkflowState:
     kalenderwoche: Optional[int] = None
     available_shifts: str = ""
     mitarbeiter: List[Mitarbeiter] = field(default_factory=list)
-    mails_all: List[MailJSON] = field(default_factory=list)
-    mails_results: List[MailJSON] = field(default_factory=list)
+    mails: List[MailJSON] = field(default_factory=list)
 
 
 _STATE = WorkflowState()
@@ -146,8 +147,57 @@ def _format_review_lists(mails: List[MailJSON]) -> Dict[str, List[Dict[str, str]
     return {"unknown": unknown, "known": known}
 
 
+def _value_has_content(value) -> bool:
+    if value is None:
+        return False
+    if isinstance(value, str):
+        return bool(value.strip())
+    if isinstance(value, dict):
+        return any(_value_has_content(v) for v in value.values())
+    if isinstance(value, Iterable):
+        return any(_value_has_content(item) for item in value)
+    if isinstance(value, bool):
+        return value
+    return True
+
+
+def _mail_has_schichtwuensche(mail: MailJSON) -> bool:
+    schichtwuensche = getattr(mail, "schichtwuensche", None)
+    if not isinstance(schichtwuensche, dict):
+        return False
+    return any(_value_has_content(value) for value in schichtwuensche.values())
+
+
+def _format_mail_entries(mails: List[MailJSON]) -> List[Dict[str, str]]:
+    entries = []
+    for mail in mails:
+        received = mail.empfangen or datetime.min
+        mail_id_value = getattr(mail, "mail_id", "")
+        try:
+            mail_id_sort = int(mail_id_value)
+        except (TypeError, ValueError):
+            mail_id_sort = 0
+        entries.append(
+            {
+                "mailadresse": str(mail.mailadresse or "").strip(),
+                "betreff": str(mail.betreff or ""),
+                "mailtext": str(mail.mailtext or ""),
+                "empfangen_display": mail.empfangen.strftime("%d.%m.%Y %H:%M") if mail.empfangen else "Kein Datum",
+                "mail_id": str(mail_id_value),
+                "kurzname": str(getattr(mail, "kurzname", "") or ""),
+                "sort_key": received,
+                "mail_id_sort": mail_id_sort,
+            }
+        )
+    entries.sort(key=lambda item: (item["sort_key"], item.get("mail_id_sort", 0)), reverse=True)
+    for entry in entries:
+        entry.pop("sort_key", None)
+        entry.pop("mail_id_sort", None)
+    return entries
+
+
 def _render_review(state: WorkflowState, error: Optional[str] = None, status: Optional[str] = None, status_level: str = "info"):
-    lists = _format_review_lists(state.mails_all)
+    lists = _format_review_lists(state.mails)
     return render_template(
         "review.html",
         unknown_mails=lists["unknown"],
@@ -187,13 +237,13 @@ def submit_form():
     state.end = end
     state.kalenderwoche = kw
     state.available_shifts = values["schichten_text"]
-    state.mails_results.clear()
+    state.mails.clear()
 
     try:
         mitarbeiter = lade_mitarbeiter()
-        mails_all = lade_mails_aus_outlook(start, end)
-        mails_all = kuerze_mailtexte(mails_all)
-        mails_all = weise_kurznamen_zu(mails_all, mitarbeiter)
+        mails = lade_mails_aus_outlook(start, end)
+        mails = kuerze_mailtexte(mails)
+        mails = weise_kurznamen_zu(mails, mitarbeiter)
     except Exception as exc:  # noqa: BLE001 - want to surface full error for manual handling
         app.logger.exception("Fehler bei der Mailverarbeitung")
         return (
@@ -207,7 +257,7 @@ def submit_form():
         )
 
     state.mitarbeiter = mitarbeiter
-    state.mails_all = mails_all
+    state.mails = mails
 
     return redirect(url_for("review_mails"))
 
@@ -215,7 +265,7 @@ def submit_form():
 @app.route("/review", methods=["GET"])
 def review_mails():
     state = _get_state()
-    if not state.mails_all:
+    if not state.mails:
         return redirect(url_for("show_form"))
     return _render_review(state)
 
@@ -223,10 +273,10 @@ def review_mails():
 @app.route("/review/continue", methods=["POST"])
 def review_continue():
     state = _get_state()
-    if not state.mails_all:
+    if not state.mails:
         return redirect(url_for("show_form"))
 
-    mails_processable = [mail for mail in state.mails_all if getattr(mail, "kurzname", "").strip()]
+    mails_processable = [mail for mail in state.mails if getattr(mail, "kurzname", "").strip()]
     if not mails_processable:
         return _render_review(state, error="Keine zu verarbeitenden Mails gefunden.")
 
@@ -234,7 +284,7 @@ def review_continue():
         mails_processable = anonymisiere_mailtexte(mails_processable, state.mitarbeiter)
         instructions = build_instructions(state.available_shifts)
         asyncio.run(process_mails_parallel(instructions, mails_processable))
-        state.mails_results = list(mails_processable)
+        state.mails = list(mails_processable)
     except Exception as exc:  # noqa: BLE001 - propagate meaningful failure message to the UI
         app.logger.exception("Fehler in der Verarbeitung")
         return _render_review(state, error=f"Verarbeitung fehlgeschlagen: {exc}")
@@ -245,21 +295,53 @@ def review_continue():
 @app.route("/results", methods=["GET"])
 def show_results():
     state = _get_state()
-    if not state.mails_results:
+    if not state.mails:
         return redirect(url_for("review_mails"))
-
-    results = sorted(
-        state.mails_results,
-        key=lambda mail: (mail.empfangen or datetime.min, mail.mail_id),
+    sorted_mails = sorted(
+        state.mails,
+        key=lambda mail: (mail.empfangen or datetime.min, getattr(mail, "mail_id", 0)),
         reverse=True,
     )
 
+    processed_raw = [
+        mail for mail in sorted_mails if getattr(mail, "ist_schichtwunsch", False) and _mail_has_schichtwuensche(mail)
+    ]
+    recognized_not_processed_raw = [
+        mail
+        for mail in sorted_mails
+        if getattr(mail, "ist_schichtwunsch", False)
+        and not _mail_has_schichtwuensche(mail)
+        and not _value_has_content(getattr(mail, "kommentar", None))
+    ]
+    non_shift_raw = [mail for mail in sorted_mails if not getattr(mail, "ist_schichtwunsch", False)]
+
+    shifts_table_raw, mail_ids_table_raw = erzeuge_schicht_tabellen(sorted_mails)
+    shifts_headers = list(shifts_table_raw[0]) if shifts_table_raw else []
+    shifts_rows = []
+    if shifts_table_raw:
+        for row_index in range(1, len(shifts_table_raw)):
+            row = []
+            for col_index, _ in enumerate(shifts_headers):
+                cell_value = shifts_table_raw[row_index][col_index]
+                cell_mail_id = ""
+                if row_index < len(mail_ids_table_raw) and col_index < len(mail_ids_table_raw[row_index]):
+                    raw_mail_id = mail_ids_table_raw[row_index][col_index]
+                    cell_mail_id = str(raw_mail_id or "")
+                    if cell_mail_id == "None":
+                        cell_mail_id = ""
+                row.append({"value": cell_value, "mail_id": cell_mail_id})
+            shifts_rows.append(row)
+
+    has_shift_entries = any(cell["value"] for row in shifts_rows for cell in row)
+
     return render_template(
         "results.html",
-        results=results,
-        timeframe=f"{_format_datetime(state.start)} – {_format_datetime(state.end)}",
-        kalenderwoche=state.kalenderwoche,
-        available_shifts=state.available_shifts,
+        processed_mails=_format_mail_entries(processed_raw),
+        recognized_not_processed_mails=_format_mail_entries(recognized_not_processed_raw),
+        non_shift_mails=_format_mail_entries(non_shift_raw),
+        shifts_headers=shifts_headers,
+        shifts_rows=shifts_rows,
+        has_shift_entries=has_shift_entries,
     )
 
 
