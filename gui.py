@@ -3,11 +3,13 @@ from __future__ import annotations
 
 import asyncio
 import os
+import sys
 import threading
 import time
 from dataclasses import dataclass, field
 from datetime import datetime
 from collections.abc import Iterable
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 from flask import Flask, make_response, redirect, render_template, request, url_for
@@ -17,7 +19,21 @@ from mail import MailJSON, lade_mails_aus_outlook, kuerze_mailtexte, weise_kurzn
 from mitarbeiter import Mitarbeiter, anonymisiere_mailtexte, lade_mitarbeiter
 from shifts import erzeuge_schicht_tabellen, schreibe_schichten_nach_excel
 
-app = Flask(__name__, template_folder="templates", static_folder="static")
+
+def _resource_dir() -> Path:
+    """Return directory holding runtime resources (exe folder when frozen)."""
+    if getattr(sys, "frozen", False):
+        return Path(sys.executable).resolve().parent
+    return Path(__file__).resolve().parent
+
+
+_BASE_DIR = _resource_dir()
+
+app = Flask(
+    __name__,
+    template_folder=str(_BASE_DIR / "templates"),
+    static_folder=str(_BASE_DIR / "static"),
+)
 app.config["SECRET_KEY"] = os.environ.get("FLASK_SECRET_KEY", "dev-secret-key")
 
 

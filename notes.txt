@@ -23,6 +23,8 @@ evals (prompting)?
 
 
 
+pyinstaller --onefile --name mailtoexcel --hidden-import win32timezone main.py
+
 
 
 

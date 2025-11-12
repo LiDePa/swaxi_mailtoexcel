@@ -2,6 +2,7 @@ from openpyxl import load_workbook
 import os
 import sys
 import re
+from pathlib import Path
 
 
 #MITARBEITERLISTE:
@@ -18,9 +19,19 @@ class Mitarbeiter:
 	
 # Hilfsfunktion für korrekten Pfad (auch für PyInstaller)
 def get_resource_path(filename):
-	if hasattr(sys, '_MEIPASS'):
-		return os.path.join(sys._MEIPASS, filename)
-	return os.path.join(os.path.dirname(os.path.abspath(__file__)), filename)
+	if getattr(sys, "frozen", False):
+		base_dir = Path(sys.executable).resolve().parent
+	else:
+		base_dir = Path(__file__).resolve().parent
+	candidate = base_dir / filename
+	if candidate.exists():
+		return str(candidate)
+	meipass = getattr(sys, "_MEIPASS", None)
+	if meipass:
+		alt_candidate = Path(meipass) / filename
+		if alt_candidate.exists():
+			return str(alt_candidate)
+	return str(candidate)
 
 # Mitarbeiterdaten laden und fehlende kurznamen ergänzen
 def lade_mitarbeiter():
