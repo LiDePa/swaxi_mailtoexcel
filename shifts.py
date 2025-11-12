@@ -1,5 +1,6 @@
 """Hilfsfunktionen für Schichtwunsch-Tabellen."""
 
+import sys
 from collections import defaultdict
 from pathlib import Path
 from typing import Dict, Iterable, List, Sequence, Tuple
@@ -17,6 +18,13 @@ _WOCHENTAGE: Tuple[str, ...] = (
 	"Montag",
 	"Dienstag",
 )
+
+
+def _resource_dir() -> Path:
+	"""Return directory for runtime resources (exe folder when frozen)."""
+	if getattr(sys, "frozen", False):
+		return Path(sys.executable).resolve().parent
+	return Path(__file__).resolve().parent
 
 
 def _to_sequence(value) -> Sequence[str]:
@@ -118,7 +126,7 @@ def schreibe_schichten_nach_excel(
 		raise ValueError("Kalenderwoche fehlt für den Excel-Export.")
 
 	sheet_name = f"KW{int(kalenderwoche):02d}"
-	workbook_path = Path(__file__).with_name("Fahrer Dienstwünsche.xlsx")
+	workbook_path = _resource_dir() / "Fahrer Dienstwünsche.xlsx"
 
 	if workbook_path.exists():
 		workbook = load_workbook(workbook_path)

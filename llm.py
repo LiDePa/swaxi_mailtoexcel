@@ -1,15 +1,25 @@
 # Modul für OpenAI-Anbindung
 
 import os
+import sys
 import asyncio
+from pathlib import Path
 from typing import Any, Dict, Iterable, List, Mapping
 
 from dotenv import load_dotenv
 from openai import AsyncOpenAI
 from pydantic import BaseModel, Field
 
+
+def _resource_dir() -> Path:
+  """Return directory holding runtime resources (exe folder when frozen)."""
+  if getattr(sys, "frozen", False):
+    return Path(sys.executable).resolve().parent
+  return Path(__file__).resolve().parent
+
+
 # .env laden
-load_dotenv()
+load_dotenv(dotenv_path=_resource_dir() / ".env")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
 # AsyncOpenAI-Client initialisieren
