@@ -8,6 +8,11 @@
 <body>
     <main class="container">
         <h1>Auswertung</h1>
+        {% if error_message %}
+            <div class="message error">{{ error_message }}</div>
+        {% elif status_message %}
+            <div class="message {{ status_level or 'info' }}">{{ status_message }}</div>
+        {% endif %}
         <div class="results-layout">
             <section class="results-column results-left">
                 <section class="field-group">
@@ -131,6 +136,12 @@
 
         <div class="actions">
             <a class="button" href="{{ url_for('review_mails') }}">Zurueck zur Uebersicht</a>
+            <form method="post" action="{{ url_for('export_results_excel') }}">
+                <button type="submit">In Excel eintragen</button>
+            </form>
+            <form method="post" action="{{ url_for('finish_without_export') }}">
+                <button type="submit">Ohne Excel-Eintrag beenden</button>
+            </form>
             <form method="post" action="{{ url_for('reset_session') }}">
                 <button type="submit">Neue Anfrage</button>
             </form>

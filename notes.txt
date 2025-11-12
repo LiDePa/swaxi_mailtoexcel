@@ -1,3 +1,7 @@
+in listen immer dazuschreiben wie viele mails es sind
+
+in results bei klick auf tabelle/kommentar, selbes verhalten als hätte man auf mail geklickt
+
 mails neben Tabelle in fixer höhe in scrollbarem fenster. Kommentare drunter und auch highlighten. css anpassen dass nicht so weird rechts steht
 
 schicht in mail in klammern -> zweite prio -> kommentar

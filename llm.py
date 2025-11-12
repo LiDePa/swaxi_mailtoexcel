@@ -273,7 +273,7 @@ def build_instructions(available_shifts):
   Mittwoch 06.08.: D.33
   Donnerstag 07.08.: D.40 oder auch D.37
   Sonntag: 10.08.: D.41 oder notfalls auch D.39
-  Montag 11.08.: D.16 
+  Montag 11.08.: kann ich eine 4 Stunden schicht machen
   Gib mir gerne so viele Dienste wie möglich. 
   Beste Grüße 
   Anon Anon
@@ -286,7 +286,7 @@ def build_instructions(available_shifts):
       "Freitag": [],
       "Samstag": [],
       "Sonntag": ["D.41", "D.39"],
-      "Montag": ["D.16"],
+      "Montag": ["4h"],
       "Dienstag": []
     },
     "kommentar": "D.39 am Sonntag nur notfalls. Wünscht sich so viele Dienste wie möglich."}
@@ -307,6 +307,7 @@ Du erzeugst genau eine JSON im Schema "OutputJSON" anhand der Liste <verfügbare
 * „oder“ innerhalb desselben Tages: Liste die Schichten ohne Klammern (z. B. Mittwoch: entweder D.41 oder D.60 => ["D.41","D.60"]).
 * „und“ trennt unabhängige Wünsche.
 * Wenn alle Schichten eines Tages akzeptabel sind dann setze '"EGAL"'.
+* Wenn statt konkreter Schichten eine Anzahl an Stunden gewünscht wird, dann setze diese (z.B. '"4h"', '"8h"').
 * 'kommentar': Stichpunktartig und möglichst knapp alle zusätzlichen für die Schichtvergabe relevanten Angaben (z. B. Kann weniger/mehr Stunden machen als normalerweise, Priorisierungen zwischen gewünschten Schichten).
 
 # Schwierige Fälle / Sonderregeln

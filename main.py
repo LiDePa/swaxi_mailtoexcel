@@ -19,6 +19,16 @@ if __name__ == "__main__":
     debug_enabled = os.getenv("FLASK_DEBUG", "0") == "1"
     host = os.getenv("FLASK_HOST", "127.0.0.1")
     port = int(os.getenv("FLASK_PORT", "5000"))
+
+    # Open the default web browser to the Flask app URL
+    import threading
+    import webbrowser
+
+    def open_browser():
+        url = f"http://{host}:{port}/"
+        webbrowser.open(url)
+
+    threading.Timer(1.0, open_browser).start()
     app.run(host=host, port=port, debug=debug_enabled)
 
 

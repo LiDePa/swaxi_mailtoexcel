@@ -6,14 +6,14 @@ import os
 from dataclasses import dataclass, field
 from datetime import datetime
 from collections.abc import Iterable
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
-from flask import Flask, redirect, render_template, request, url_for
+from flask import Flask, make_response, redirect, render_template, request, url_for
 
 from llm import build_instructions, process_mails_parallel
 from mail import MailJSON, lade_mails_aus_outlook, kuerze_mailtexte, weise_kurznamen_zu
 from mitarbeiter import Mitarbeiter, anonymisiere_mailtexte, lade_mitarbeiter
-from shifts import erzeuge_schicht_tabellen
+from shifts import erzeuge_schicht_tabellen, schreibe_schichten_nach_excel
 
 app = Flask(__name__, template_folder="templates", static_folder="static")
 app.config["SECRET_KEY"] = os.environ.get("FLASK_SECRET_KEY", "dev-secret-key")
@@ -196,6 +196,73 @@ def _format_mail_entries(mails: List[MailJSON]) -> List[Dict[str, str]]:
     return entries
 
 
+def _prepare_results_data(state: WorkflowState) -> Tuple[Dict[str, Any], List[List[str]], List[Dict[str, str]]]:
+    sorted_mails = sorted(
+        state.mails,
+        key=lambda mail: (mail.empfangen or datetime.min, getattr(mail, "mail_id", 0)),
+        reverse=True,
+    )
+
+    processed_raw = [
+        mail for mail in sorted_mails if getattr(mail, "ist_schichtwunsch", False) and _mail_has_schichtwuensche(mail)
+    ]
+    recognized_not_processed_raw = [
+        mail
+        for mail in sorted_mails
+        if getattr(mail, "ist_schichtwunsch", False)
+        and not _mail_has_schichtwuensche(mail)
+        and not _value_has_content(getattr(mail, "kommentar", None))
+    ]
+    non_shift_raw = [mail for mail in sorted_mails if not getattr(mail, "ist_schichtwunsch", False)]
+
+    shifts_table_raw, mail_ids_table_raw, comments_list = erzeuge_schicht_tabellen(sorted_mails)
+    shifts_headers = list(shifts_table_raw[0]) if shifts_table_raw else []
+    shifts_rows: List[List[Dict[str, str]]] = []
+    if shifts_table_raw:
+        for row_index in range(1, len(shifts_table_raw)):
+            row: List[Dict[str, str]] = []
+            for col_index, _ in enumerate(shifts_headers):
+                cell_value = shifts_table_raw[row_index][col_index]
+                cell_mail_id = ""
+                if row_index < len(mail_ids_table_raw) and col_index < len(mail_ids_table_raw[row_index]):
+                    raw_mail_id = mail_ids_table_raw[row_index][col_index]
+                    cell_mail_id = str(raw_mail_id or "")
+                    if cell_mail_id == "None":
+                        cell_mail_id = ""
+                row.append({"value": cell_value, "mail_id": cell_mail_id})
+            shifts_rows.append(row)
+
+    has_shift_entries = any(cell["value"] for row in shifts_rows for cell in row)
+
+    context: Dict[str, Any] = {
+        "processed_mails": _format_mail_entries(processed_raw),
+        "recognized_not_processed_mails": _format_mail_entries(recognized_not_processed_raw),
+        "non_shift_mails": _format_mail_entries(non_shift_raw),
+        "shifts_headers": shifts_headers,
+        "shifts_rows": shifts_rows,
+        "has_shift_entries": has_shift_entries,
+        "comment_entries": comments_list,
+    }
+    return context, shifts_table_raw, comments_list
+
+
+def _render_results(
+    state: WorkflowState,
+    error: Optional[str] = None,
+    status: Optional[str] = None,
+    status_level: str = "info",
+):
+    context, _shifts_table_raw, _comments = _prepare_results_data(state)
+    context.update(
+        {
+            "error_message": error,
+            "status_message": status,
+            "status_level": status_level,
+        }
+    )
+    return render_template("results.html", **context)
+
+
 def _render_review(state: WorkflowState, error: Optional[str] = None, status: Optional[str] = None, status_level: str = "info"):
     lists = _format_review_lists(state.mails)
     return render_template(
@@ -297,56 +364,55 @@ def show_results():
     state = _get_state()
     if not state.mails:
         return redirect(url_for("review_mails"))
-    sorted_mails = sorted(
-        state.mails,
-        key=lambda mail: (mail.empfangen or datetime.min, getattr(mail, "mail_id", 0)),
-        reverse=True,
-    )
+    return _render_results(state)
 
-    processed_raw = [
-        mail for mail in sorted_mails if getattr(mail, "ist_schichtwunsch", False) and _mail_has_schichtwuensche(mail)
-    ]
-    recognized_not_processed_raw = [
-        mail
-        for mail in sorted_mails
-        if getattr(mail, "ist_schichtwunsch", False)
-        and not _mail_has_schichtwuensche(mail)
-        and not _value_has_content(getattr(mail, "kommentar", None))
-    ]
-    non_shift_raw = [mail for mail in sorted_mails if not getattr(mail, "ist_schichtwunsch", False)]
 
-    shifts_table_raw, mail_ids_table_raw, comments_list = erzeuge_schicht_tabellen(sorted_mails)
-    shifts_headers = list(shifts_table_raw[0]) if shifts_table_raw else []
-    shifts_rows = []
-    if shifts_table_raw:
-        for row_index in range(1, len(shifts_table_raw)):
-            row = []
-            for col_index, _ in enumerate(shifts_headers):
-                cell_value = shifts_table_raw[row_index][col_index]
-                cell_mail_id = ""
-                if row_index < len(mail_ids_table_raw) and col_index < len(mail_ids_table_raw[row_index]):
-                    raw_mail_id = mail_ids_table_raw[row_index][col_index]
-                    cell_mail_id = str(raw_mail_id or "")
-                    if cell_mail_id == "None":
-                        cell_mail_id = ""
-                row.append({"value": cell_value, "mail_id": cell_mail_id})
-            shifts_rows.append(row)
+@app.route("/results/export_excel", methods=["POST"])
+def export_results_excel():
+    state = _get_state()
+    if not state.mails:
+        return redirect(url_for("show_form"))
+    if not state.kalenderwoche:
+        return _render_results(state, error="Keine Kalenderwoche hinterlegt. Export nicht moeglich.")
 
-    has_shift_entries = any(cell["value"] for row in shifts_rows for cell in row)
+    _context, shifts_table_raw, comments_list = _prepare_results_data(state)
+    try:
+        schreibe_schichten_nach_excel(shifts_table_raw, comments_list, state.kalenderwoche)
+    except Exception as exc:  # noqa: BLE001 - Fehler für die UI anzeigen
+        app.logger.exception("Excel-Export fehlgeschlagen")
+        return _render_results(state, error=f"Excel-Export fehlgeschlagen: {exc}")
 
-    return render_template(
-        "results.html",
-        processed_mails=_format_mail_entries(processed_raw),
-        recognized_not_processed_mails=_format_mail_entries(recognized_not_processed_raw),
-        non_shift_mails=_format_mail_entries(non_shift_raw),
-        shifts_headers=shifts_headers,
-        shifts_rows=shifts_rows,
-        has_shift_entries=has_shift_entries,
-        comment_entries=comments_list,
-    )
+    return _shutdown_application("Schichten erfolgreich in Excel eingetragen. Programm wird beendet.")
+
+
+@app.route("/results/finish", methods=["POST"])
+def finish_without_export():
+    state = _get_state()
+    if not state.mails:
+        return redirect(url_for("show_form"))
+    return _shutdown_application("Programm wird ohne Excel-Export beendet.")
 
 
 @app.route("/reset", methods=["POST"])
 def reset_session():
     _reset_state()
     return redirect(url_for("show_form"))
+
+
+def _shutdown_application(message: str, status_code: int = 200):
+    shutdown_func = request.environ.get("werkzeug.server.shutdown")
+    if not shutdown_func:
+        app.logger.warning("Server-Shutdown-Funktion nicht verfuegbar.")
+
+    _reset_state()
+
+    response = make_response(
+        f"<html><body><p>{message}</p><p>Fenster kann geschlossen werden.</p></body></html>"
+    )
+    response.headers["Content-Type"] = "text/html; charset=utf-8"
+    response.status_code = status_code
+
+    if shutdown_func:
+        shutdown_func()
+
+    return response

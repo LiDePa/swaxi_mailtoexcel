@@ -1,7 +1,10 @@
 """Hilfsfunktionen für Schichtwunsch-Tabellen."""
 
 from collections import defaultdict
+from pathlib import Path
 from typing import Dict, Iterable, List, Sequence, Tuple
+
+from openpyxl import Workbook, load_workbook
 
 
 _WOCHENTAGE: Tuple[str, ...] = (
@@ -90,4 +93,65 @@ def erzeuge_schicht_tabellen(mails) -> Tuple[List[List[str]], List[List[str]], L
 		mail_ids_table.append(mail_ids_row)
 
 	return shifts_table, mail_ids_table, kommentare_liste
+
+
+def schreibe_schichten_nach_excel(
+	shifts_table: List[List[str]],
+	kommentare: List[Dict[str, str]],
+	kalenderwoche: int,
+) -> Path:
+	"""Schreibt die Schichttabelle und Kommentare in die Excel-Datei.
+
+	Args:
+		shifts_table: Tabelle mit Kopfzeile und Schichtwerten.
+		kommentare: Liste der Kommentare inklusive Kurznamen.
+		kalenderwoche: Kalenderwoche, die als Blattname verwendet wird.
+
+	Returns:
+		Pfad zur aktualisierten Excel-Datei.
+
+	Raises:
+		ValueError: Wenn Kalenderwoche fehlt oder das Blatt bereits existiert.
+	"""
+	if not kalenderwoche:
+		raise ValueError("Kalenderwoche fehlt für den Excel-Export.")
+
+	sheet_name = f"KW{int(kalenderwoche):02d}"
+	workbook_path = Path(__file__).with_name("Fahrer Dienstwünsche.xlsx")
+
+	if workbook_path.exists():
+		workbook = load_workbook(workbook_path)
+		if sheet_name in workbook.sheetnames:
+			raise ValueError(f"Blatt '{sheet_name}' existiert bereits.")
+		worksheet = workbook.create_sheet(title=sheet_name)
+	else:
+		workbook = Workbook()
+		worksheet = workbook.active
+		worksheet.title = sheet_name
+
+	# Erste Zeile bleibt bewusst leer, daher beginnt die Kopfzeile in Zeile 2.
+	headers = shifts_table[0] if shifts_table else list(_WOCHENTAGE)
+	for column_index in range(len(_WOCHENTAGE)):
+		value = headers[column_index] if column_index < len(headers) else _WOCHENTAGE[column_index]
+		worksheet.cell(row=2, column=column_index + 1, value=value)
+
+	for row_offset, row_values in enumerate(shifts_table[1:], start=3):
+		for column_index, cell_value in enumerate(row_values[: len(_WOCHENTAGE)]):
+			worksheet.cell(row=row_offset, column=column_index + 1, value=cell_value)
+
+	# Spalte H bleibt frei, Kommentare starten in I2.
+	worksheet.cell(row=2, column=9, value="Kommentare")
+	for comment_offset, entry in enumerate(kommentare or [], start=3):
+		kurzname = (entry.get("kurzname") or "").strip()
+		kommentar = (entry.get("kommentar") or "").strip()
+		text = kommentar
+		if kurzname and kommentar:
+			text = f"{kurzname}: {kommentar}"
+		elif kurzname:
+			text = kurzname
+		worksheet.cell(row=comment_offset, column=9, value=text)
+
+	worksheet.freeze_panes = "A3"
+	workbook.save(workbook_path)
+	return workbook_path
 
