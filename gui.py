@@ -315,7 +315,7 @@ def show_results():
     ]
     non_shift_raw = [mail for mail in sorted_mails if not getattr(mail, "ist_schichtwunsch", False)]
 
-    shifts_table_raw, mail_ids_table_raw = erzeuge_schicht_tabellen(sorted_mails)
+    shifts_table_raw, mail_ids_table_raw, comments_list = erzeuge_schicht_tabellen(sorted_mails)
     shifts_headers = list(shifts_table_raw[0]) if shifts_table_raw else []
     shifts_rows = []
     if shifts_table_raw:
@@ -342,6 +342,7 @@ def show_results():
         shifts_headers=shifts_headers,
         shifts_rows=shifts_rows,
         has_shift_entries=has_shift_entries,
+        comment_entries=comments_list,
     )
 
 

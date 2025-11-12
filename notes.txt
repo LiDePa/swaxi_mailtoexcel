@@ -1,3 +1,5 @@
+mails neben Tabelle in fixer höhe in scrollbarem fenster. Kommentare drunter und auch highlighten. css anpassen dass nicht so weird rechts steht
+
 schicht in mail in klammern -> zweite prio -> kommentar
 
 sicherstellen dass verfügbare_schichten nicht leer ist, mit fehermeldung usw

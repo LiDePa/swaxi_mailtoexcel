@@ -332,3 +332,31 @@ button:disabled {
     border-color: #f59e0b;
     background-color: #fff7ed;
 }
+
+.mail-list-scroll {
+    max-height: 75vh;
+    height: 800px;
+    overflow-y: auto;
+    padding-right: 4px;
+}
+
+.mail-list-scroll .mail-list {
+    padding-right: 4px;
+}
+
+.comment-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.comment-list li + li {
+    margin-top: 8px;
+}
+
+.comment-list li.is-highlighted {
+    background-color: #fef3c7;
+    border-radius: 6px;
+    padding: 8px 10px;
+    box-shadow: inset 0 0 0 1px #f59e0b;
+}

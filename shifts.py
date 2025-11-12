@@ -1,7 +1,7 @@
 """Hilfsfunktionen für Schichtwunsch-Tabellen."""
 
 from collections import defaultdict
-from typing import Iterable, List, Sequence, Tuple
+from typing import Dict, Iterable, List, Sequence, Tuple
 
 
 _WOCHENTAGE: Tuple[str, ...] = (
@@ -34,10 +34,12 @@ def _sanitize_shift(shift: str) -> str:
 	return shift.replace(".", "").strip()
 
 
-def erzeuge_schicht_tabellen(mails) -> Tuple[List[List[str]], List[List[str]]]:
-	"""Erstellt Schicht- und Mail-ID-Tabellen aus MailJSON-Daten."""
+def erzeuge_schicht_tabellen(mails) -> Tuple[List[List[str]], List[List[str]], List[Dict[str, str]]]:
+	"""Erstellt Schicht- und Mail-ID-Tabellen sowie Kommentarlisten."""
 	spalteninhalte = defaultdict(list)
 	mail_id_spalten = defaultdict(list)
+	kommentar_map: Dict[str, str] = {}
+	kommentare_liste: List[Dict[str, str]] = []
 
 	for mail in mails or []:
 		if not getattr(mail, "ist_schichtwunsch", False):
@@ -48,6 +50,12 @@ def erzeuge_schicht_tabellen(mails) -> Tuple[List[List[str]], List[List[str]]]:
 			continue
 		kurzname = str(getattr(mail, "kurzname", "")).strip()
 		mail_id = getattr(mail, "mail_id", "")
+
+		kommentar = str(getattr(mail, "kommentar", "") or "").strip()
+		if kommentar:
+			if kurzname:
+				kommentar_map[kurzname] = kommentar
+			kommentare_liste.append({"kurzname": kurzname, "kommentar": kommentar, "mail_id": str(mail_id)})
 
 		for tag in _WOCHENTAGE:
 			raw_shift_values = schichtwuensche.get(tag)
@@ -81,5 +89,5 @@ def erzeuge_schicht_tabellen(mails) -> Tuple[List[List[str]], List[List[str]]]:
 		shifts_table.append(shifts_row)
 		mail_ids_table.append(mail_ids_row)
 
-	return shifts_table, mail_ids_table
+	return shifts_table, mail_ids_table, kommentare_liste
 

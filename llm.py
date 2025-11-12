@@ -303,7 +303,7 @@ Du erzeugst genau eine JSON im Schema "OutputJSON" anhand der Liste <verfügbare
 
 # Extraktionsregeln
 * Normalisiere Schicht-IDs ins Format 'D.41' (kein Leerzeichen).
-* Klammern = XOR über verschiedene Tage: Schichten, die an verschiedenen Tagen per „oder“ verbunden sind, sollen als '"(D.41)"' markiert werden (z. B. Mittwoch D.41 oder Donnerstag D.41 => "Mittwoch": ["(D.41)"], "Donnerstag": ["(D.41)"]).
+* Klammern = 'entweder oder' über verschiedene Tage: Schichten, die an verschiedenen Tagen per „oder“ verbunden sind, sollen als '"(D.41)"' markiert werden (z. B. Mittwoch D.41 oder Donnerstag D.41 => "Mittwoch": ["(D.41)"], "Donnerstag": ["(D.41)"]).
 * „oder“ innerhalb desselben Tages: Liste die Schichten ohne Klammern (z. B. Mittwoch: entweder D.41 oder D.60 => ["D.41","D.60"]).
 * „und“ trennt unabhängige Wünsche.
 * Wenn alle Schichten eines Tages akzeptabel sind dann setze '"EGAL"'.

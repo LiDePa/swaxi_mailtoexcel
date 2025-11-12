@@ -13,22 +13,24 @@
                 <section class="field-group">
                     <h2>Verarbeitete Mails</h2>
                     {% if processed_mails %}
-                        <ul class="mail-list">
-                            {% for mail in processed_mails %}
-                                <li class="mail-item">
-                                    <button type="button" class="mail-toggle" data-mail-highlight="{{ mail.mail_id }}">
-                                        <div class="mail-header">
-                                            <span class="mail-address">{{ (mail.mailadresse or "(keine Adresse)") | e }}</span>
-                                            <span class="mail-date">{{ mail.empfangen_display | e }}</span>
+                        <div class="mail-list-scroll">
+                            <ul class="mail-list">
+                                {% for mail in processed_mails %}
+                                    <li class="mail-item">
+                                        <button type="button" class="mail-toggle" data-mail-highlight="{{ mail.mail_id }}">
+                                            <div class="mail-header">
+                                                <span class="mail-address">{{ (mail.mailadresse or "(keine Adresse)") | e }}</span>
+                                                <span class="mail-date">{{ mail.empfangen_display | e }}</span>
+                                            </div>
+                                            <div class="mail-subject">{{ (mail.betreff or "(kein Betreff)") | e }}</div>
+                                        </button>
+                                        <div class="mail-body" hidden>
+                                            <p>{{ mail.mailtext | e | replace('\n', '<br>' | safe) }}</p>
                                         </div>
-                                        <div class="mail-subject">{{ (mail.betreff or "(kein Betreff)") | e }}</div>
-                                    </button>
-                                    <div class="mail-body" hidden>
-                                        <p>{{ mail.mailtext | e | replace('\n', '<br>' | safe) }}</p>
-                                    </div>
-                                </li>
-                            {% endfor %}
-                        </ul>
+                                    </li>
+                                {% endfor %}
+                            </ul>
+                        </div>
                     {% else %}
                         <p class="empty-placeholder">Keine verarbeiteten Mails vorhanden.</p>
                     {% endif %}
@@ -111,6 +113,19 @@
                         <p class="empty-placeholder">Keine Schichtwuensche vorhanden.</p>
                     {% endif %}
                 </section>
+
+                <section class="field-group">
+                    <h2>Kommentare</h2>
+                    {% if comment_entries %}
+                        <ul class="comment-list">
+                            {% for entry in comment_entries %}
+                                <li data-mail-id="{{ entry["mail_id"] }}"><strong>{{ (entry["kurzname"] or "(kein Kurzname)") | e }}</strong>: {{ entry["kommentar"] | e }}</li>
+                            {% endfor %}
+                        </ul>
+                    {% else %}
+                        <p class="empty-placeholder">Keine Kommentare vorhanden.</p>
+                    {% endif %}
+                </section>
             </section>
         </div>
 
@@ -125,8 +140,9 @@
         document.addEventListener('DOMContentLoaded', function () {
             var highlightButtons = document.querySelectorAll('[data-mail-highlight]');
             var otherButtons = document.querySelectorAll('.mail-toggle:not([data-mail-highlight])');
-            var tableCells = Array.from(document.querySelectorAll('[data-mail-id]'));
+            var tableCells = Array.from(document.querySelectorAll('.shift-table [data-mail-id]'));
             var tableRows = Array.from(document.querySelectorAll('.shift-table tbody tr'));
+            var commentItems = Array.from(document.querySelectorAll('.comment-list [data-mail-id]'));
             var activeHighlightButton = null;
 
             function clearHighlight() {
@@ -135,6 +151,9 @@
                 });
                 tableRows.forEach(function (row) {
                     row.classList.remove('has-highlighted-cell');
+                });
+                commentItems.forEach(function (item) {
+                    item.classList.remove('is-highlighted');
                 });
             }
 
@@ -150,6 +169,11 @@
                         if (row) {
                             row.classList.add('has-highlighted-cell');
                         }
+                    }
+                });
+                commentItems.forEach(function (item) {
+                    if (item.dataset.mailId === mailId && item.dataset.mailId !== '') {
+                        item.classList.add('is-highlighted');
                     }
                 });
             }
