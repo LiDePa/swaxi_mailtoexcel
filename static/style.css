@@ -319,6 +319,10 @@ button:disabled {
     color: #1f2933;
 }
 
+.shift-table td.has-entry[data-mail-id]:hover {
+    cursor: pointer;
+}
+
 .shift-table td.is-highlighted {
     background-color: #ffac22;
     font-weight: 600;
@@ -355,4 +359,8 @@ button:disabled {
     border-radius: 6px;
     padding: 8px 10px;
     box-shadow: inset 0 0 0 1px #f59e0b;
+}
+
+.comment-list li[data-mail-id]:hover {
+    cursor: pointer;
 }

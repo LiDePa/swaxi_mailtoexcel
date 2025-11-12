@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Dict, Iterable, List, Sequence, Tuple
 
 from openpyxl import Workbook, load_workbook
+from openpyxl.styles import PatternFill
 
 
 _WOCHENTAGE: Tuple[str, ...] = (
@@ -123,7 +124,7 @@ def schreibe_schichten_nach_excel(
 		workbook = load_workbook(workbook_path)
 		if sheet_name in workbook.sheetnames:
 			raise ValueError(f"Blatt '{sheet_name}' existiert bereits.")
-		worksheet = workbook.create_sheet(title=sheet_name)
+		worksheet = workbook.create_sheet(title=sheet_name, index=0)
 	else:
 		workbook = Workbook()
 		worksheet = workbook.active
@@ -131,16 +132,19 @@ def schreibe_schichten_nach_excel(
 
 	# Erste Zeile bleibt bewusst leer, daher beginnt die Kopfzeile in Zeile 2.
 	headers = shifts_table[0] if shifts_table else list(_WOCHENTAGE)
+	gray_fill = PatternFill(start_color="FFE5E5E5", end_color="FFE5E5E5", fill_type="solid")
 	for column_index in range(len(_WOCHENTAGE)):
 		value = headers[column_index] if column_index < len(headers) else _WOCHENTAGE[column_index]
-		worksheet.cell(row=2, column=column_index + 1, value=value)
+		cell = worksheet.cell(row=2, column=column_index + 1, value=value)
+		cell.fill = gray_fill
 
 	for row_offset, row_values in enumerate(shifts_table[1:], start=3):
 		for column_index, cell_value in enumerate(row_values[: len(_WOCHENTAGE)]):
 			worksheet.cell(row=row_offset, column=column_index + 1, value=cell_value)
 
 	# Spalte H bleibt frei, Kommentare starten in I2.
-	worksheet.cell(row=2, column=9, value="Kommentare")
+	header_comment_cell = worksheet.cell(row=2, column=9, value="Kommentare")
+	header_comment_cell.fill = gray_fill
 	for comment_offset, entry in enumerate(kommentare or [], start=3):
 		kurzname = (entry.get("kurzname") or "").strip()
 		kommentar = (entry.get("kommentar") or "").strip()
@@ -149,9 +153,28 @@ def schreibe_schichten_nach_excel(
 			text = f"{kurzname}: {kommentar}"
 		elif kurzname:
 			text = kurzname
-		worksheet.cell(row=comment_offset, column=9, value=text)
+		comment_cell = worksheet.cell(row=comment_offset, column=9, value=text)
+		comment_cell.fill = gray_fill
+
+	max_comment_row = max(len(shifts_table) + 1, (len(kommentare) or 0) + 2, 3)
+	for row_index in range(2, max_comment_row + 1):
+		worksheet.cell(row=row_index, column=9).fill = gray_fill
 
 	worksheet.freeze_panes = "A3"
+
+	# Auto-fit column widths to content
+	for col in worksheet.columns:
+		max_length = 0
+		col_letter = col[0].column_letter
+		for cell in col:
+			try:
+				cell_value = str(cell.value) if cell.value is not None else ""
+				max_length = max(max_length, len(cell_value))
+			except Exception:
+				pass
+		# Add a little padding for readability
+		worksheet.column_dimensions[col_letter].width = max(max_length + 2, 12)
+
 	workbook.save(workbook_path)
 	return workbook_path
 

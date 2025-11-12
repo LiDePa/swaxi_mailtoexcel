@@ -3,6 +3,8 @@ from __future__ import annotations
 
 import asyncio
 import os
+import threading
+import time
 from dataclasses import dataclass, field
 from datetime import datetime
 from collections.abc import Iterable
@@ -168,6 +170,10 @@ def _mail_has_schichtwuensche(mail: MailJSON) -> bool:
     return any(_value_has_content(value) for value in schichtwuensche.values())
 
 
+def _mail_has_kommentar(mail: MailJSON) -> bool:
+    return _value_has_content(getattr(mail, "kommentar", None))
+
+
 def _format_mail_entries(mails: List[MailJSON]) -> List[Dict[str, str]]:
     entries = []
     for mail in mails:
@@ -204,14 +210,17 @@ def _prepare_results_data(state: WorkflowState) -> Tuple[Dict[str, Any], List[Li
     )
 
     processed_raw = [
-        mail for mail in sorted_mails if getattr(mail, "ist_schichtwunsch", False) and _mail_has_schichtwuensche(mail)
+        mail
+        for mail in sorted_mails
+        if getattr(mail, "ist_schichtwunsch", False)
+        and (_mail_has_schichtwuensche(mail) or _mail_has_kommentar(mail))
     ]
     recognized_not_processed_raw = [
         mail
         for mail in sorted_mails
         if getattr(mail, "ist_schichtwunsch", False)
         and not _mail_has_schichtwuensche(mail)
-        and not _value_has_content(getattr(mail, "kommentar", None))
+        and not _mail_has_kommentar(mail)
     ]
     non_shift_raw = [mail for mail in sorted_mails if not getattr(mail, "ist_schichtwunsch", False)]
 
@@ -402,7 +411,19 @@ def reset_session():
 def _shutdown_application(message: str, status_code: int = 200):
     shutdown_func = request.environ.get("werkzeug.server.shutdown")
     if not shutdown_func:
-        app.logger.warning("Server-Shutdown-Funktion nicht verfuegbar.")
+        app.logger.info("Server-Shutdown-Funktion nicht verfuegbar. Beende Prozess hart.")
+
+    def _terminate():
+        time.sleep(0.5)
+        if shutdown_func:
+            try:
+                shutdown_func()
+                return
+            except Exception:  # noqa: BLE001 - log and fall back to hard exit
+                app.logger.exception("Fehler beim Versuch, den Server zu stoppen")
+        os._exit(0)
+
+    threading.Thread(target=_terminate, daemon=True).start()
 
     _reset_state()
 
@@ -411,8 +432,5 @@ def _shutdown_application(message: str, status_code: int = 200):
     )
     response.headers["Content-Type"] = "text/html; charset=utf-8"
     response.status_code = status_code
-
-    if shutdown_func:
-        shutdown_func()
 
     return response

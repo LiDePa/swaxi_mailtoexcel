@@ -107,7 +107,7 @@
                                     {% for row in shifts_rows %}
                                         <tr>
                                             {% for cell in row %}
-                                                <td data-mail-id="{{ cell.mail_id }}" class="{% if cell.value %}has-entry{% endif %}">{{ cell.value }}</td>
+                                                <td class="{% if cell.value %}has-entry{% endif %}" {% if cell.mail_id %}data-mail-id="{{ cell.mail_id }}"{% endif %}>{{ cell.value }}</td>
                                             {% endfor %}
                                         </tr>
                                     {% endfor %}
@@ -124,7 +124,7 @@
                     {% if comment_entries %}
                         <ul class="comment-list">
                             {% for entry in comment_entries %}
-                                <li data-mail-id="{{ entry["mail_id"] }}"><strong>{{ (entry["kurzname"] or "(kein Kurzname)") | e }}</strong>: {{ entry["kommentar"] | e }}</li>
+                                <li {% if entry["mail_id"] %}data-mail-id="{{ entry["mail_id"] }}"{% endif %}><strong>{{ (entry["kurzname"] or "(kein Kurzname)") | e }}</strong>: {{ entry["kommentar"] | e }}</li>
                             {% endfor %}
                         </ul>
                     {% else %}
@@ -227,6 +227,45 @@
                     } else {
                         body.setAttribute('hidden', '');
                     }
+                });
+            });
+
+            function triggerMailButton(mailId) {
+                if (!mailId) {
+                    return;
+                }
+                var matchingButton = Array.from(highlightButtons).find(function (button) {
+                    return button.dataset.mailHighlight === mailId;
+                });
+                if (!matchingButton) {
+                    return;
+                }
+                var body = matchingButton.nextElementSibling;
+                var isHidden = body && body.hasAttribute('hidden');
+                if (isHidden) {
+                    matchingButton.click();
+                } else {
+                    applyHighlight(mailId);
+                    activeHighlightButton = matchingButton;
+                    matchingButton.classList.add('is-active-mail');
+                }
+            }
+
+            tableCells.forEach(function (cell) {
+                cell.addEventListener('click', function () {
+                    if (!cell.dataset.mailId) {
+                        return;
+                    }
+                    triggerMailButton(cell.dataset.mailId);
+                });
+            });
+
+            commentItems.forEach(function (item) {
+                item.addEventListener('click', function () {
+                    if (!item.dataset.mailId) {
+                        return;
+                    }
+                    triggerMailButton(item.dataset.mailId);
                 });
             });
         });
