@@ -1,10 +1,6 @@
-pywin32
+Flask
 openai
 openpyxl
-pandas
-tqdm
-presidio-analyzer
-presidio-anonymizer
+pydantic
+pywin32
 python-dotenv
-openai
-Flask
