@@ -16,7 +16,7 @@
         <div class="results-layout">
             <section class="results-column results-left">
                 <section class="field-group">
-                    <h2>Verarbeitete Mails</h2>
+                    <h2>Verarbeitete Mails ({{ processed_mails|length }})</h2>
                     {% if processed_mails %}
                         <div class="mail-list-scroll">
                             <ul class="mail-list">
@@ -42,7 +42,7 @@
                 </section>
 
                 <section class="field-group">
-                    <h2>Als Schichtwunsch erkannt aber nicht verarbeitet</h2>
+                    <h2>Als Schichtwunsch erkannt aber nicht verarbeitet ({{ recognized_not_processed_mails|length }})</h2>
                     {% if recognized_not_processed_mails %}
                         <ul class="mail-list">
                             {% for mail in recognized_not_processed_mails %}
@@ -66,7 +66,7 @@
                 </section>
 
                 <section class="field-group">
-                    <h2>Kein Schichtwunsch</h2>
+                    <h2>Kein Schichtwunsch ({{ non_shift_mails|length }})</h2>
                     {% if non_shift_mails %}
                         <ul class="mail-list">
                             {% for mail in non_shift_mails %}

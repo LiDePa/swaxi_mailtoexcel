@@ -15,7 +15,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from flask import Flask, make_response, redirect, render_template, request, url_for
 
 from llm import build_instructions, process_mails_parallel
-from mail import MailJSON, lade_mails_aus_outlook, kuerze_mailtexte, weise_kurznamen_zu
+from mail import MailJSON, lade_mails_aus_outlook, kuerze_mailtexte, weise_kurznamen_zu, OutlookAccessError
 from mitarbeiter import Mitarbeiter, anonymisiere_mailtexte, lade_mitarbeiter
 from shifts import erzeuge_schicht_tabellen, schreibe_schichten_nach_excel
 
@@ -316,6 +316,17 @@ def show_form():
 def submit_form():
     state = _get_state()
     values = _gather_form_values(request.form)
+
+    if not values["schichten_text"]:
+        return (
+            render_template(
+                "index.html",
+                values=values,
+                error="Bitte die verfuegbaren Schichten eintragen.",
+                success=False,
+            ),
+            400,
+        )
     try:
         start = _build_datetime(values["start_date"], values["start_hour"], values["start_minute"])
         end = _build_datetime(values["end_date"], values["end_hour"], values["end_minute"])
@@ -333,7 +344,55 @@ def submit_form():
 
     try:
         mitarbeiter = lade_mitarbeiter()
+    except Exception as exc:  # noqa: BLE001 - propagate readable error
+        app.logger.exception("Fehler beim Laden der Mitarbeiterliste")
+        return (
+            render_template(
+                "index.html",
+                values=values,
+                error=f"Mitarbeiterliste konnte nicht geladen werden: {exc}",
+                success=False,
+            ),
+            500,
+        )
+
+    try:
         mails = lade_mails_aus_outlook(start, end)
+    except OutlookAccessError as exc:
+        app.logger.exception("Outlook-Zugriff fehlgeschlagen")
+        return (
+            render_template(
+                "index.html",
+                values=values,
+                error=str(exc),
+                success=False,
+            ),
+            500,
+        )
+    except Exception as exc:  # noqa: BLE001 - we want to surface detailed failure info
+        app.logger.exception("Unerwarteter Fehler beim Einlesen der Mails")
+        return (
+            render_template(
+                "index.html",
+                values=values,
+                error=f"Fehler beim Einlesen der Mails: {exc}",
+                success=False,
+            ),
+            500,
+        )
+
+    if not mails:
+        return (
+            render_template(
+                "index.html",
+                values=values,
+                error="Im ausgewaehlten Zeitraum wurden keine Mails gefunden.",
+                success=False,
+            ),
+            200,
+        )
+
+    try:
         mails = kuerze_mailtexte(mails)
         mails = weise_kurznamen_zu(mails, mitarbeiter)
     except Exception as exc:  # noqa: BLE001 - want to surface full error for manual handling
@@ -368,7 +427,9 @@ def review_continue():
     if not state.mails:
         return redirect(url_for("show_form"))
 
+    breakpoint()
     mails_processable = [mail for mail in state.mails if getattr(mail, "kurzname", "").strip()]
+    breakpoint()
     if not mails_processable:
         return _render_review(state, error="Keine zu verarbeitenden Mails gefunden.")
 
@@ -403,6 +464,11 @@ def export_results_excel():
     _context, shifts_table_raw, comments_list = _prepare_results_data(state)
     try:
         schreibe_schichten_nach_excel(shifts_table_raw, comments_list, state.kalenderwoche)
+    except PermissionError:
+        return _render_results(
+            state,
+            error="Excel-Datei konnte nicht beschrieben werden. Bitte schliessen Sie 'Fahrer Dienstw\u00fcnsche.xlsx' und versuchen Sie es erneut.",
+        )
     except Exception as exc:  # noqa: BLE001 - Fehler für die UI anzeigen
         app.logger.exception("Excel-Export fehlgeschlagen")
         return _render_results(state, error=f"Excel-Export fehlgeschlagen: {exc}")

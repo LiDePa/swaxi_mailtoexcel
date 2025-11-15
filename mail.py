@@ -1,7 +1,13 @@
 import re
 import win32com.client
+import pywintypes
 from collections import OrderedDict
 from datetime import datetime
+
+
+class OutlookAccessError(RuntimeError):
+	"""Raised when Outlook cannot be accessed or required folders are missing."""
+
 
 
 class MailJSON:
@@ -32,7 +38,15 @@ def finde_ordner(parent_folder, ordnername, rekursiv=False):
 	return None
 
 def lade_mails_aus_outlook(startdatum, enddatum):
-	outlook = win32com.client.Dispatch("Outlook.Application").GetNamespace("MAPI")
+	try:
+		outlook_app = win32com.client.Dispatch("Outlook.Application")
+	except pywintypes.com_error as exc:
+		raise OutlookAccessError("Outlook konnte nicht gestartet werden. Bitte Outlook oeffnen und erneut versuchen.") from exc
+
+	try:
+		outlook = outlook_app.GetNamespace("MAPI")
+	except pywintypes.com_error as exc:
+		raise OutlookAccessError("Outlook-Postfach konnte nicht geladen werden. Bitte Outlook neu starten und erneut versuchen.") from exc
 	# Freigegebenes Postfach holen
 	konto = None
 	for acc in outlook.Folders:
@@ -40,8 +54,7 @@ def lade_mails_aus_outlook(startdatum, enddatum):
 			konto = acc
 			break
 	if not konto:
-		print("Postfach 'Swaxi Dispo' nicht gefunden!")
-		return []
+		raise OutlookAccessError("Postfach 'Swaxi Dispo' wurde nicht gefunden. Bitte Berechtigungen pruefen und Outlook neu starten.")
 	# Nur Mails aus Inbox und Archive > Dienstwünsche / FZ
 	mails = []
 
@@ -52,7 +65,7 @@ def lade_mails_aus_outlook(startdatum, enddatum):
 		return f"[ReceivedTime] >= '{start_str}'"
 
 	# Inbox suchen (case-insensitive)
-	inbox = finde_ordner(konto, "Inbox")
+	inbox = finde_ordner(konto, "Inbox") or finde_ordner(konto, "Posteingang")
 	if inbox:
 		try:
 			items = inbox.Items.Restrict(restrict_filter(startdatum))
@@ -69,10 +82,10 @@ def lade_mails_aus_outlook(startdatum, enddatum):
 						betreff = item.Subject
 						mailtext = item.Body
 						mails.append(MailJSON(mail_id, mailadresse, betreff, mailtext, empfangen))
-		except Exception as e:
-			print(f"Fehler beim Zugriff auf Inbox: {e}")
+		except pywintypes.com_error as exc:
+			raise OutlookAccessError("Auf die Outlook-Inbox konnte nicht zugegriffen werden. Bitte Outlook neu starten und erneut versuchen.") from exc
 	else:
-		print("Ordner 'Inbox' nicht gefunden!")
+		raise OutlookAccessError("Ordner 'Inbox' bzw. 'Posteingang' wurde im Postfach 'Swaxi Dispo' nicht gefunden. Bitte Outlook-Konfiguration pruefen.")
 
 	# Archive > Dienstwünsche / FZ suchen (rekursiv)
 	dienstwuensche_fz = None
@@ -94,8 +107,8 @@ def lade_mails_aus_outlook(startdatum, enddatum):
 						betreff = item.Subject
 						mailtext = item.Body
 						mails.append(MailJSON(mail_id, mailadresse, betreff, mailtext, empfangen))
-		except Exception as e:
-			print(f"Fehler beim Zugriff auf Dienstwünsche / FZ: {e}")
+		except pywintypes.com_error as exc:
+			raise OutlookAccessError("Auf den Ordner 'Archive > Dienstwünsche / FZ' konnte nicht zugegriffen werden. Bitte Outlook neu starten und erneut versuchen.") from exc
 	else:
 		print("Ordner 'Archive > Dienstwünsche / FZ' nicht gefunden!")
 

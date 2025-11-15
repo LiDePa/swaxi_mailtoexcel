@@ -1,21 +1,4 @@
-in listen immer dazuschreiben wie viele mails es sind
-
-sicherstellen dass verfügbare_schichten nicht leer ist, mit fehermeldung usw
-
-remove consecutive /n in verfügbare_schichten & in examples
-
-edge
-
-mehrere mailadressen von selbem mitarbeiter ermöglichen (falls nicht bereits möglich)
-checken ob unbekannte mailadressen in oberer liste auftauchen und auch wirklich keinen kurznamen erhalten
-Möglichkeit bieten, kurznamen hinzuzufügen wenn mail von unbekannter adresse -> programm soll sie dann auch der excel hinzufügen
-checken ob mails ohne kurzname vor lllm call wirklich gelöscht werden
-
-@AlicanThomas: was wenn sich ein Mitarbeiter für alles verfügbar meldet? alle schichten eintragen oder in den Kommentar?
-
-fehlermeldung wenn excel tabelle geöffnet, outlook nicht geöffnet, 0 mails gefunden, etc
-
-evals (prompting)?
+* @AlicanThomas: was wenn sich ein Mitarbeiter für alles verfügbar meldet? alle schichten eintragen oder in den Kommentar?
 
 
 
