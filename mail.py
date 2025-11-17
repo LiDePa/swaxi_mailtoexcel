@@ -1,4 +1,5 @@
 import re
+import locale
 import win32com.client
 import pywintypes
 from collections import OrderedDict
@@ -24,6 +25,31 @@ class MailJSON:
 		self.empfangen = empfangen
 	def __repr__(self):
 		return f"<MailJSON {self.mail_id}: {self.betreff} von {self.mailadresse}>"
+
+
+def _detect_outlook_datetime_format():
+	"""Map Windows locale to an Outlook Restrict-friendly datetime pattern."""
+	try:
+		original = locale.setlocale(locale.LC_TIME)
+	except locale.Error:
+		original = None
+	try:
+		user_locale = locale.setlocale(locale.LC_TIME, '')
+	except locale.Error:
+		user_locale = original or ''
+	finally:
+		if original:
+			try:
+				locale.setlocale(locale.LC_TIME, original)
+			except locale.Error:
+				pass
+	locale_token = (user_locale or '').lower()
+	if locale_token.startswith(('de', 'german')):
+		return "%d.%m.%Y %H:%M"
+	return "%m/%d/%Y %I:%M %p"
+
+
+_OUTLOOK_DATETIME_FORMAT = _detect_outlook_datetime_format()
 
 # Hilfsfunktion: Suche Ordner nach Name (case-insensitive, optional rekursiv)
 def finde_ordner(parent_folder, ordnername, rekursiv=False):
@@ -59,16 +85,16 @@ def lade_mails_aus_outlook(startdatum, enddatum):
 	mails = []
 
 	# Outlook Restrict-Filter für Datum (ReceivedTime)
-	# Nur Datumsteil (mm/dd/yyyy), Uhrzeit wird in Python gefiltert
-	def restrict_filter(start):
-		start_str = start.strftime('%m/%d/%Y')
-		return f"[ReceivedTime] >= '{start_str}'"
+	def restrict_filter(start, end):
+		start_str = start.strftime(_OUTLOOK_DATETIME_FORMAT)
+		end_str = end.strftime(_OUTLOOK_DATETIME_FORMAT)
+		return f"[ReceivedTime] >= '{start_str}' AND [ReceivedTime] <= '{end_str}'"
 
 	# Inbox suchen (case-insensitive)
 	inbox = finde_ordner(konto, "Inbox") or finde_ordner(konto, "Posteingang")
 	if inbox:
 		try:
-			items = inbox.Items.Restrict(restrict_filter(startdatum))
+			items = inbox.Items.Restrict(restrict_filter(startdatum, enddatum))
 			items.Sort("ReceivedTime", True)
 			for item in items:
 				if hasattr(item, "ReceivedTime"):
@@ -94,7 +120,7 @@ def lade_mails_aus_outlook(startdatum, enddatum):
 		dienstwuensche_fz = finde_ordner(archive, "Dienstwünsche / FZ")
 	if dienstwuensche_fz:
 		try:
-			items = dienstwuensche_fz.Items.Restrict(restrict_filter(startdatum))
+			items = dienstwuensche_fz.Items.Restrict(restrict_filter(startdatum, enddatum))
 			items.Sort("ReceivedTime", True)
 			for item in items:
 				if hasattr(item, "ReceivedTime"):

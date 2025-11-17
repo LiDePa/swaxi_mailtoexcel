@@ -283,6 +283,7 @@ def _render_results(
             "error_message": error,
             "status_message": status,
             "status_level": status_level,
+            "kalenderwoche_label": f"KW{state.kalenderwoche:02d}" if state.kalenderwoche else None,
         }
     )
     return render_template("results.html", **context)
@@ -427,9 +428,7 @@ def review_continue():
     if not state.mails:
         return redirect(url_for("show_form"))
 
-    breakpoint()
     mails_processable = [mail for mail in state.mails if getattr(mail, "kurzname", "").strip()]
-    breakpoint()
     if not mails_processable:
         return _render_review(state, error="Keine zu verarbeitenden Mails gefunden.")
 

@@ -137,7 +137,7 @@
         <div class="actions">
             <a class="button" href="{{ url_for('review_mails') }}">Zurueck zur Uebersicht</a>
             <form method="post" action="{{ url_for('export_results_excel') }}">
-                <button type="submit">In Excel eintragen</button>
+                <button type="submit">In Excel eintragen{% if kalenderwoche_label %} unter {{ kalenderwoche_label }}{% endif %}</button>
             </form>
             <form method="post" action="{{ url_for('finish_without_export') }}">
                 <button type="submit">Ohne Excel-Eintrag beenden</button>
@@ -189,6 +189,72 @@
                 });
             }
 
+            function closeMailButton(button) {
+                if (!button) {
+                    return;
+                }
+                var body = button.nextElementSibling;
+                if (body && !body.hasAttribute('hidden')) {
+                    body.setAttribute('hidden', '');
+                }
+                button.classList.remove('is-active-mail');
+            }
+
+            function openMailButton(button) {
+                if (!button) {
+                    return;
+                }
+                var body = button.nextElementSibling;
+                if (body && body.hasAttribute('hidden')) {
+                    body.removeAttribute('hidden');
+                }
+                button.classList.add('is-active-mail');
+            }
+
+            function closeAllMailButtons(exceptButton) {
+                highlightButtons.forEach(function (button) {
+                    if (button !== exceptButton) {
+                        closeMailButton(button);
+                    }
+                });
+            }
+
+            function scrollMailIntoView(mailButton) {
+                if (!mailButton) {
+                    return;
+                }
+                var mailItem = mailButton.closest('.mail-item');
+                if (!mailItem) {
+                    return;
+                }
+                var scrollContainer = mailItem.closest('.mail-list-scroll');
+                var schedule = window.requestAnimationFrame || function (callback) {
+                    return window.setTimeout(callback, 0);
+                };
+                schedule(function () {
+                    if (!scrollContainer) {
+                        mailItem.scrollIntoView({ behavior: 'smooth', block: 'start', inline: 'nearest' });
+                        return;
+                    }
+                    var containerRect = scrollContainer.getBoundingClientRect();
+                    var itemRect = mailItem.getBoundingClientRect();
+                    var currentTop = scrollContainer.scrollTop;
+                    var visibleTop = currentTop + (itemRect.top - containerRect.top);
+                    var visibleBottom = visibleTop + mailItem.offsetHeight;
+                    var minVisible = currentTop;
+                    var maxVisible = currentTop + scrollContainer.clientHeight;
+                    var targetTop = currentTop;
+                    if (visibleTop < minVisible) {
+                        targetTop = visibleTop;
+                    } else if (visibleBottom > maxVisible) {
+                        targetTop = visibleBottom - scrollContainer.clientHeight;
+                    } else {
+                        return;
+                    }
+                    scrollContainer.scrollTo({ top: Math.max(targetTop - 8, 0), behavior: 'smooth' });
+                });
+            }
+
             highlightButtons.forEach(function (button) {
                 button.addEventListener('click', function () {
                     var body = button.nextElementSibling;
@@ -197,16 +263,12 @@
                     }
                     var isHidden = body.hasAttribute('hidden');
                     if (isHidden) {
-                        body.removeAttribute('hidden');
-                        if (activeHighlightButton && activeHighlightButton !== button) {
-                            activeHighlightButton.classList.remove('is-active-mail');
-                        }
+                        closeAllMailButtons(button);
+                        openMailButton(button);
                         activeHighlightButton = button;
-                        button.classList.add('is-active-mail');
                         applyHighlight(button.dataset.mailHighlight);
                     } else {
-                        body.setAttribute('hidden', '');
-                        button.classList.remove('is-active-mail');
+                        closeMailButton(button);
                         if (activeHighlightButton === button) {
                             activeHighlightButton = null;
                             clearHighlight();
@@ -240,15 +302,11 @@
                 if (!matchingButton) {
                     return;
                 }
-                var body = matchingButton.nextElementSibling;
-                var isHidden = body && body.hasAttribute('hidden');
-                if (isHidden) {
-                    matchingButton.click();
-                } else {
-                    applyHighlight(mailId);
-                    activeHighlightButton = matchingButton;
-                    matchingButton.classList.add('is-active-mail');
-                }
+                closeAllMailButtons(matchingButton);
+                openMailButton(matchingButton);
+                activeHighlightButton = matchingButton;
+                applyHighlight(mailId);
+                scrollMailIntoView(matchingButton);
             }
 
             tableCells.forEach(function (cell) {

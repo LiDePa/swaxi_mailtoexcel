@@ -329,8 +329,7 @@ button:disabled {
 }
 
 .mail-toggle.is-active-mail {
-    border-color: #ffac22;
-    background-color: #fff7ed;
+    background-color: #ffac22;
 }
 
 .mail-list-scroll {
