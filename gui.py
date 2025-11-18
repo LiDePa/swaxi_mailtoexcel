@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import asyncio
 import os
+import pickle
 import sys
 import threading
 import time
@@ -28,6 +29,9 @@ def _resource_dir() -> Path:
 
 
 _BASE_DIR = _resource_dir()
+_DUMMY_DATA_FILE = _BASE_DIR / "dummymails.pkl"
+
+_USE_DUMMY_MAILS = False
 
 app = Flask(
     __name__,
@@ -35,6 +39,21 @@ app = Flask(
     static_folder=str(_BASE_DIR / "static"),
 )
 app.config["SECRET_KEY"] = os.environ.get("FLASK_SECRET_KEY", "dev-secret-key")
+
+
+def enable_dummy_mode() -> None:
+    """Enable loading mails from the serialized dummy file instead of Outlook."""
+    global _USE_DUMMY_MAILS
+    _USE_DUMMY_MAILS = True
+
+
+def dummy_mode_enabled() -> bool:
+    return _USE_DUMMY_MAILS
+
+
+def _load_dummy_mails() -> List[MailJSON]:
+    with _DUMMY_DATA_FILE.open("rb") as handle:
+        return pickle.load(handle)
 
 
 @dataclass
@@ -329,13 +348,20 @@ def submit_form():
             400,
         )
     try:
-        start = _build_datetime(values["start_date"], values["start_hour"], values["start_minute"])
-        end = _build_datetime(values["end_date"], values["end_hour"], values["end_minute"])
-        if end < start:
-            raise ValueError("Enddatum darf nicht vor dem Startdatum liegen.")
         kw = _parse_kw(values["kalenderwoche"])
     except ValueError as exc:
         return render_template("index.html", values=values, error=str(exc), success=False), 400
+
+    start: Optional[datetime] = None
+    end: Optional[datetime] = None
+    if not dummy_mode_enabled():
+        try:
+            start = _build_datetime(values["start_date"], values["start_hour"], values["start_minute"])
+            end = _build_datetime(values["end_date"], values["end_hour"], values["end_minute"])
+            if end < start:
+                raise ValueError("Enddatum darf nicht vor dem Startdatum liegen.")
+        except ValueError as exc:
+            return render_template("index.html", values=values, error=str(exc), success=False), 400
 
     state.start = start
     state.end = end
@@ -358,7 +384,10 @@ def submit_form():
         )
 
     try:
-        mails = lade_mails_aus_outlook(start, end)
+        if dummy_mode_enabled():
+            mails = _load_dummy_mails()
+        else:
+            mails = lade_mails_aus_outlook(start, end)
     except OutlookAccessError as exc:
         app.logger.exception("Outlook-Zugriff fehlgeschlagen")
         return (
@@ -383,11 +412,12 @@ def submit_form():
         )
 
     if not mails:
+        error_message = "Keine Dummy-Mails gefunden. Bitte dummymails.pkl erstellen." if dummy_mode_enabled() else "Im ausgewaehlten Zeitraum wurden keine Mails gefunden."
         return (
             render_template(
                 "index.html",
                 values=values,
-                error="Im ausgewaehlten Zeitraum wurden keine Mails gefunden.",
+                error=error_message,
                 success=False,
             ),
             200,

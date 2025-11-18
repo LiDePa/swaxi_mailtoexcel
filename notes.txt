@@ -1,5 +1,7 @@
 * @AlicanThomas: was wenn sich ein Mitarbeiter für alles verfügbar meldet? alle schichten eintragen oder in den Kommentar?
 
+* wird letztes arbeitsblatt in excel überschrieben??
+
 
 
 
